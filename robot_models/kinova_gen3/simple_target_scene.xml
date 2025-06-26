@@ -1,0 +1,20 @@
+<mujoco model="simple_target_scene">
+  <include file="gen3_with_gripper_scene.xml"/>
+  
+  <asset>
+    <material name="target_material" rgba="0.2 0.8 0.2 0.5" shininess="0.3"/>
+  </asset>
+
+  <worldbody>
+    <!-- Movable target sphere with free joint -->
+    <body name="target_sphere" pos="0 0 1.0">
+      <freejoint/>
+      <geom name="target_visual" 
+            type="sphere" 
+            size="0.025" 
+            material="target_material"
+            contype="0" 
+            conaffinity="0"/>
+    </body>
+  </worldbody>
+</mujoco> 

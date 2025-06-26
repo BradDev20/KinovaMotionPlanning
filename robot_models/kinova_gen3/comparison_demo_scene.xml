@@ -1,0 +1,29 @@
+<mujoco model="gen3_with_gripper_scene">
+  <include file="gen3.xml"/>
+  
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+    <global azimuth="120" elevation="-20"/>
+  </visual>
+  
+  <asset>
+    <texture name="groundplane" type="2d" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" 
+      markrgb="0.8 0.8 0.8" width="300" height="300"/>
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
+    
+    <texture name="skybox" type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072"/>
+  </asset>
+  
+  <worldbody>
+    <geom name="ground" type="plane" size="2 2 0.1" material="groundplane"/>
+    <light name="spotlight" mode="targetbodycom" target="base_link" 
+      directional="false" diffuse="0.8 0.8 0.8" specular="0.3 0.3 0.3" pos="0 0 4" dir="0 0 -1"/>
+  
+    <!-- Target sphere for comparison demo -->
+    <body name="target_sphere" pos="-0.10087273 -0.0248501 1.17091202">
+        <geom name="target_sphere_geom" type="sphere" size="0.03" 
+              rgba="0.0 0.8 0.0 0.3" material="" contype="0" conaffinity="0"/>
+    </body>
+    </worldbody>
+</mujoco> 

@@ -1,0 +1,20 @@
+<mujoco model="kinova_gen3_with_target">
+  <include file="gen3_with_gripper_scene.xml"/>
+  
+  <asset>
+    <material name="target_material" rgba="0.2 0.8 0.2 0.4" shininess="0.1"/>
+  </asset>
+
+  <worldbody>
+    <!-- Target sphere that can be moved to goal positions -->
+    <body name="target_sphere" pos="0 0 1.2">
+      <geom name="target_visual" 
+            type="sphere" 
+            size="0.03" 
+            material="target_material" 
+            group="1"
+            contype="0" 
+            conaffinity="0"/>
+    </body>
+  </worldbody>
+</mujoco> 

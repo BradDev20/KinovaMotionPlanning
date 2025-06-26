@@ -11,12 +11,13 @@ from typing import Tuple, Optional
 class KinematicsSolver:
     """Kinematics solver using MuJoCo for the Kinova Gen3 robot"""
     
-    def __init__(self, model: mujoco.MjModel, data: mujoco.MjData):
-        self.model = model
-        self.data = data
-        
-        # Get end-effector body ID (bracelet_link for Kinova Gen3)
-        self.end_effector_id = 8  # bracelet_link from model inspection
+    def __init__(self, model_path):
+        self.model = mujoco.MjModel.from_xml_path(model_path)
+        self.data = mujoco.MjData(self.model)
+        # Use gripper center instead of just bracelet_link
+        self.end_effector_body = 10  # gripper_base for reference
+        self.right_pad_body = 16     # right_silicone_pad  
+        self.left_pad_body = 22      # left_silicone_pad
         
         # Proper joint limits for Kinova Gen3 (in radians)
         # Based on actual robot specs: some joints unlimited, others have physical limits
@@ -60,103 +61,92 @@ class KinematicsSolver:
             self.data.qvel[:] = self._backup_qvel
             mujoco.mj_forward(self.model, self.data)
     
-    def forward_kinematics(self, joint_angles: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Compute forward kinematics for given joint angles
-        
-        Args:
-            joint_angles: 7-DOF joint angles in radians
-            
-        Returns:
-            position: 3D position of end-effector
-            orientation: 3x3 rotation matrix of end-effector
-        """
-        # Backup current state
-        self._backup_state()
-        
-        # Set joint angles
-        self.data.qpos[:7] = joint_angles
-        
-        # Compute forward kinematics
+    def get_end_effector_pose(self, joint_positions):
+        """Get the pose of the gripper center (between finger pads)."""
+        # Set joint positions and compute forward kinematics
+        self.data.qpos[:len(joint_positions)] = joint_positions
         mujoco.mj_forward(self.model, self.data)
         
-        # Get end-effector pose
-        position = self.data.xpos[self.end_effector_id].copy()
-        orientation = self.data.xmat[self.end_effector_id].reshape(3, 3).copy()
+        # Calculate center between gripper finger pads
+        right_pad_pos = self.data.xpos[self.right_pad_body]
+        left_pad_pos = self.data.xpos[self.left_pad_body]
+        gripper_center = (right_pad_pos + left_pad_pos) / 2
         
-        # Restore state
-        self._restore_state()
+        # Use gripper_base orientation (could be improved to average finger orientations)
+        gripper_base_rot = self.data.xmat[self.end_effector_body].reshape(3, 3)
         
-        return position, orientation
-    
-    def inverse_kinematics(self, 
-                          target_position: np.ndarray, 
-                          target_orientation: Optional[np.ndarray] = None,
-                          initial_guess: Optional[np.ndarray] = None,
-                          position_tolerance: float = 1e-4,
-                          orientation_tolerance: float = 1e-3) -> Tuple[np.ndarray, bool]:
+        return gripper_center, gripper_base_rot
+
+    def forward_kinematics(self, joint_positions):
+        """Compute forward kinematics for given joint positions."""
+        position, rotation = self.get_end_effector_pose(joint_positions)
+        return position, rotation
+
+    def inverse_kinematics(self, target_position, target_orientation=None, 
+                          initial_guess=None, tolerance=1e-3, max_iterations=100):
         """
-        Solve inverse kinematics for a target SE(3) pose
+        Solve inverse kinematics for target pose.
         
         Args:
-            target_position: Target 3D position
-            target_orientation: Target 3x3 rotation matrix (optional)
-            initial_guess: Initial joint configuration (default: current state)
-            position_tolerance: Position error tolerance
-            orientation_tolerance: Orientation error tolerance
-            
-        Returns:
-            joint_angles: Solution joint angles (7-DOF)
-            success: Whether IK converged successfully
+            target_position: 3D target position
+            target_orientation: 3x3 rotation matrix (optional)
+            initial_guess: Initial joint configuration
+            tolerance: Position tolerance
+            max_iterations: Maximum optimization iterations
         """
         if initial_guess is None:
-            initial_guess = self.data.qpos[:7].copy()
+            initial_guess = np.zeros(7)  # 7 DOF for Kinova Gen3
         
-        def objective_function(joint_angles):
-            """Objective function for IK optimization"""
-            pos, rot = self.forward_kinematics(joint_angles)
-            
-            # Position error
-            pos_error = np.linalg.norm(pos - target_position)
-            
-            # Orientation error (if target orientation provided)
-            rot_error = 0.0
-            if target_orientation is not None:
-                # Use Frobenius norm of rotation difference
-                rot_diff = rot - target_orientation
-                rot_error = np.linalg.norm(rot_diff)
-            
-            return pos_error + rot_error
+        # Joint limits for Kinova Gen3 (approximate)
+        joint_limits = [
+            (-2.9, 2.9),    # Joint 1: ±166°
+            (-2.1, 2.1),    # Joint 2: ±120°  
+            (-2.9, 2.9),    # Joint 3: ±166°
+            (-2.1, 2.1),    # Joint 4: ±120°
+            (-2.9, 2.9),    # Joint 5: ±166°
+            (-2.1, 2.1),    # Joint 6: ±120°
+            (-2.9, 2.9),    # Joint 7: ±166°
+        ]
         
-        # Joint limit constraints (use optimization bounds to avoid infinite bounds)
-        bounds = [(low, high) for low, high in zip(self.optimization_limits_lower, self.optimization_limits_upper)]
+        def objective(joint_positions):
+            try:
+                current_position, current_orientation = self.forward_kinematics(joint_positions)
+                
+                # Position error
+                position_error = np.linalg.norm(current_position - target_position)
+                
+                # Orientation error (if provided)
+                orientation_error = 0.0
+                if target_orientation is not None:
+                    # Use Frobenius norm of rotation matrix difference
+                    rot_diff = current_orientation - target_orientation
+                    orientation_error = np.linalg.norm(rot_diff) * 0.1  # Weight orientation less
+                
+                return position_error + orientation_error
+                
+            except Exception as e:
+                return 1e6  # Large penalty for invalid configurations
         
-        # Solve optimization
+        # Optimize
         result = minimize(
-            objective_function,
+            objective,
             initial_guess,
             method='L-BFGS-B',
-            bounds=bounds,
-            options={'ftol': 1e-6, 'maxiter': 500}  # Relaxed tolerance, fewer iterations
+            bounds=joint_limits,
+            options={'maxiter': max_iterations, 'ftol': tolerance}
         )
+
+        print(f"IK result: {result}")
         
-        # Check success
-        final_pos, final_rot = self.forward_kinematics(result.x)
-        pos_error = np.linalg.norm(final_pos - target_position)
-        
-        rot_error = 0.0
-        if target_orientation is not None:
-            rot_error = np.linalg.norm(final_rot - target_orientation)
-        
-        success = (pos_error < position_tolerance and 
-                  rot_error < orientation_tolerance)
-        
-        return result.x, bool(success)  # Ensure bool return type
+        if result.success:
+            return result.x, True
+        else:
+            return initial_guess, False
     
     def get_current_pose(self) -> Tuple[np.ndarray, np.ndarray]:
         """Get current end-effector pose"""
-        position = self.data.xpos[self.end_effector_id].copy()
-        orientation = self.data.xmat[self.end_effector_id].reshape(3, 3).copy()
+        position = self.data.xpos[self.end_effector_body].copy()
+        orientation = self.data.xmat[self.end_effector_body].reshape(3, 3).copy()
         return position, orientation
     
     def get_joint_limits(self) -> Tuple[np.ndarray, np.ndarray]:

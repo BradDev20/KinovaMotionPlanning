@@ -38,9 +38,27 @@ As a robotics researcher (Connor), I'd really like to see my robot move please. 
 mjpython -m src.examples.test_vel_ctrl
 ```
 
-## Motion Planning
+## Sample-based Motion Planning - RRT
 
-Test naive RRT to go to a couple of positions
+Test naive RRT to go to a couple of joint positions
 ```
 mjpython -m src.examples.working_motion_demo
 ```
+You will see the robot moving around as it navigates to some nearby joint states.
+
+Test RRT to go to a rendered goal position in EE space
+```
+mjpython -m src.examples.target_reaching_demo
+```
+You will see a rendered green sphere that the robot is trying to move to, and the robot will plan a path to the sphere using RRT. See rendering below.
+![image](docs/media/reached_goal_pos.png)
+
+## Cost-based Motion Planning
+In order to instantiate multiple objectives, we need to represent the moiton planning problem as the minimization of a cost function.
+
+### Distance to Goal Minimization
+In this case, we simply do trajectory optimization on the state of the robot.
+TODO: TrajOpt?
+
+## Multi-Objective Motion Planning
+TODO: Implemented Custom Cost Functions?

@@ -10,154 +10,107 @@ from .planners import RRTPlanner, MotionPlannerFactory
 
 
 class MotionPlanningInterface:
-    """High-level interface for SE(3) goal planning with MuJoCo"""
+    """High-level interface for motion planning with the Kinova Gen3"""
     
-    def __init__(self, model: mujoco.MjModel, data: mujoco.MjData):
+    def __init__(self, model_path: str):
         """
         Initialize motion planning interface
         
         Args:
-            model: MuJoCo model
-            data: MuJoCo data
+            model_path: Path to MuJoCo XML model file
         """
-        self.model = model
-        self.data = data
+        self.model_path = model_path
+        self.model = mujoco.MjModel.from_xml_path(model_path)
+        self.data = mujoco.MjData(self.model)
         
-        # Initialize components
-        self.kinematics = KinematicsSolver(model, data)
-        self.planner = MotionPlannerFactory.create_rrt_planner(model, data)
+        # Initialize components with new API
+        self.kinematics = KinematicsSolver(model_path)
+        self.planner = RRTPlanner(self.model, self.data)
         
         # Setup collision checking
-        collision_checker = MotionPlannerFactory.create_collision_checker(model, data)
+        collision_checker = MotionPlannerFactory.create_collision_checker(self.model, self.data)
         self.planner.set_collision_checker(collision_checker)
         
         # Trajectory execution parameters
         self.execution_speed = 1.0  # Speed multiplier for trajectory execution
         
     def plan_to_pose(self, 
-                    target_position: np.ndarray,
-                    target_orientation: Optional[np.ndarray] = None,
-                    initial_guess: Optional[np.ndarray] = None) -> Tuple[List[np.ndarray], bool]:
+                     target_position: np.ndarray,
+                     target_orientation: Optional[np.ndarray] = None,
+                     start_config: Optional[np.ndarray] = None,
+                     **kwargs) -> Tuple[Optional[List[np.ndarray]], bool]:
         """
         Plan a trajectory to reach a target SE(3) pose
         
         Args:
-            target_position: Target 3D position [x, y, z]
+            target_position: Target 3D position for gripper center
             target_orientation: Target 3x3 rotation matrix (optional)
-            initial_guess: Initial guess for IK (optional)
+            start_config: Starting joint configuration (default: current)
+            **kwargs: Additional arguments for planning
             
         Returns:
-            trajectory: List of joint configurations forming the trajectory
+            trajectory: List of joint configurations, or None if planning failed
             success: Whether planning succeeded
         """
-        print(f"Planning to target position: {target_position}")
-        if target_orientation is not None:
-            print(f"With target orientation specified")
-        
-        # Step 1: Solve inverse kinematics for goal pose
-        goal_joints, ik_success = self.kinematics.inverse_kinematics(
-            target_position, 
-            target_orientation, 
-            initial_guess
+        if start_config is None:
+            start_config = self.data.qpos[:7].copy()
+            
+        # Solve inverse kinematics for target pose
+        target_config, ik_success = self.kinematics.inverse_kinematics(
+            target_position, target_orientation, initial_guess=start_config
         )
         
         if not ik_success:
-            print("❌ Inverse kinematics failed")
-            return [], False
+            print(f"IK failed for target pose: {target_position}")
+            return None, False
+            
+        # Plan path in joint space
+        path, planning_success = self.planner.plan(start_config, target_config)
         
-        print(f"✅ IK succeeded: goal joints = {[f'{x:.3f}' for x in goal_joints]}")
+        return path, planning_success
         
-        # Step 2: Plan path from current configuration to goal
-        current_joints = self.data.qpos[:7].copy()
-        
-        print(f"Planning path from current joints: {[f'{x:.3f}' for x in current_joints]}")
-        
-        trajectory, planning_success = self.planner.plan(current_joints, goal_joints)
-        
-        if not planning_success:
-            print("❌ Path planning failed")
-            return [], False
-        
-        print(f"✅ Path planning succeeded: {len(trajectory)} waypoints")
-        
-        # Step 3: Smooth trajectory
-        smoothed_trajectory = self.planner.smooth_path(trajectory)
-        print(f"✅ Path smoothed: {len(smoothed_trajectory)} waypoints")
-        
-        return smoothed_trajectory, True
-    
-    def plan_to_joint_configuration(self, target_joints: np.ndarray) -> Tuple[List[np.ndarray], bool]:
+    def plan_to_joint_config(self,
+                           target_config: np.ndarray,
+                           start_config: Optional[np.ndarray] = None) -> Tuple[Optional[List[np.ndarray]], bool]:
         """
-        Plan a trajectory to a target joint configuration
+        Plan a trajectory to reach a target joint configuration
         
         Args:
-            target_joints: Target 7-DOF joint configuration
+            target_config: Target joint configuration (7-DOF)
+            start_config: Starting joint configuration (default: current)
             
         Returns:
-            trajectory: List of joint configurations forming the trajectory
+            trajectory: List of joint configurations, or None if planning failed  
             success: Whether planning succeeded
         """
-        print(f"Planning to target joints: {[f'{x:.3f}' for x in target_joints]}")
+        if start_config is None:
+            start_config = self.data.qpos[:7].copy()
+            
+        return self.planner.plan(start_config, target_config)
         
-        current_joints = self.data.qpos[:7].copy()
-        trajectory, success = self.planner.plan(current_joints, target_joints)
+    def get_current_pose(self) -> Tuple[np.ndarray, np.ndarray]:
+        """Get current gripper center pose"""
+        return self.kinematics.get_current_pose()
         
-        if success:
-            smoothed_trajectory = self.planner.smooth_path(trajectory)
-            print(f"✅ Joint space planning succeeded: {len(smoothed_trajectory)} waypoints")
-            return smoothed_trajectory, True
-        else:
-            print("❌ Joint space planning failed")
-            return [], False
-    
-    def execute_trajectory(self, 
-                          trajectory: List[np.ndarray], 
-                          callback: Optional[Callable] = None,
-                          dt: float = 0.01) -> bool:
+    def execute_trajectory(self, trajectory: List[np.ndarray], dt: float = 0.01):
         """
-        Execute a trajectory by updating MuJoCo control signals
+        Execute a trajectory in simulation
         
         Args:
-            trajectory: List of joint configurations to execute
-            callback: Optional callback function called at each step
-            dt: Time step for execution
-            
-        Returns:
-            success: Whether execution completed successfully
+            trajectory: List of joint configurations
+            dt: Time step between waypoints
         """
-        if not trajectory:
-            print("❌ Empty trajectory provided")
-            return False
-        
-        print(f"Executing trajectory with {len(trajectory)} waypoints...")
-        
-        try:
-            for i, waypoint in enumerate(trajectory):
-                # Set control signals to follow waypoint
-                self.data.ctrl[:7] = waypoint
-                
-                # Step simulation
-                mujoco.mj_step(self.model, self.data)
-                
-                # Call callback if provided
-                if callback:
-                    callback(i, waypoint, self.data)
-                    
-                # Small delay for visualization
-                if dt > 0:
-                    import time
-                    time.sleep(dt * self.execution_speed)
+        for config in trajectory:
+            # Set joint positions 
+            self.data.qpos[:7] = config
+            self.data.ctrl[:7] = config  # PD control to maintain position
             
-            print("✅ Trajectory execution completed")
-            return True
+            # Step simulation
+            mujoco.mj_step(self.model, self.data)
             
-        except Exception as e:
-            print(f"❌ Trajectory execution failed: {e}")
-            return False
-    
-    def get_current_end_effector_pose(self) -> Tuple[np.ndarray, np.ndarray]:
-        """Get current end-effector pose"""
-        return self.kinematics.get_current_pose()
+            # Optional: add delay for visualization
+            import time
+            time.sleep(dt)
     
     def validate_trajectory(self, trajectory: List[np.ndarray]) -> bool:
         """

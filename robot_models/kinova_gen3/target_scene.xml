@@ -1,0 +1,22 @@
+<mujoco model="target_scene">
+  <!-- Include the base robot scene -->
+  <include file="scene.xml"/>
+  
+  <!-- Add visual materials -->
+  <asset>
+    <material name="target_green" rgba="0.3 0.8 0.3 0.6" shininess="0.5"/>
+  </asset>
+
+  <!-- Add target sphere to worldbody -->
+  <worldbody>
+    <body name="target_sphere" pos="-0.1 0 1.0">
+      <geom name="target_geom" 
+            type="sphere" 
+            size="0.03" 
+            material="target_green"
+            contype="0" 
+            conaffinity="0"
+            group="1"/>
+    </body>
+  </worldbody>
+</mujoco> 
