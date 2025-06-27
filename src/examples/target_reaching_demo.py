@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Enhanced target reaching demonstration with gripper center targeting
+Enhanced target reaching demonstration with RRT planning and gripper center targeting
 """
 
 import mujoco
@@ -14,6 +14,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from motion_planning.kinematics import KinematicsSolver
+from motion_planning.planners import RRTPlanner
 
 def create_target_scene_with_offset():
     """Create a target scene with sphere positioned to be reachable by gripper center"""
@@ -48,19 +49,21 @@ def create_target_scene_with_offset():
     return output_path
 
 def main():
-    print("=== Gripper Center Target Reaching Demo ===")
+    print("=== RRT Target Reaching Demo ===")
+    print("Using RRT path planning to reach target")
     print()
     
     # Create scene with properly positioned target
     model_path = create_target_scene_with_offset()
     print(f"Created scene: {model_path}")
     
-    # Initialize kinematics solver
+    # Initialize components
     ik_solver = KinematicsSolver(model_path)
-    
-    # Load model for simulation
     model = mujoco.MjModel.from_xml_path(model_path)
     data = mujoco.MjData(model)
+    
+    # Initialize RRT planner
+    rrt_planner = RRTPlanner(model, data, step_size=0.01, max_iterations=1000, goal_threshold=0.1)
     
     # Set robot to home position
     home_config = np.array([0.0, 0.5, 0.0, -2.5, 0.0, 0.45, 1.57])
@@ -82,72 +85,112 @@ def main():
     print(f"Gripper center: {np.linalg.norm(gripper_center_pos - target_position)*100:.1f}cm")
     print(f"Bracelet link: {np.linalg.norm(bracelet_pos - target_position)*100:.1f}cm")
     
-    # Attempt to reach target with gripper center
+    # Step 1: Use inverse kinematics to find target configuration
     print()
-    print("Attempting to reach target with gripper center...")
+    print("Step 1: Finding target configuration with IK...")
     
     target_config, ik_success = ik_solver.inverse_kinematics(
         target_position,
         initial_guess=home_config,
-        tolerance=0.01,  # 3cm tolerance
+        tolerance=0.01,
         max_iterations=2000
     )
     
-    if ik_success:
-        print("✅ IK succeeded for gripper center targeting!")
+    if not ik_success:
+        print("❌ IK failed - target may be unreachable")
+        return
+    
+    print("✅ IK succeeded for gripper center targeting!")
+    print(f"Target configuration: {[f'{x:.3f}' for x in target_config]}")
+    
+    # Step 2: Use RRT to plan path from start to target configuration
+    print()
+    print("Step 2: Planning path with RRT...")
+    print(f"RRT parameters:")
+    print(f"  - Step size: {rrt_planner.step_size}")
+    print(f"  - Max iterations: {rrt_planner.max_iterations}")
+    print(f"  - Goal threshold: {rrt_planner.goal_threshold}")
+    
+    start_time = time.time()
+    trajectory, planning_success = rrt_planner.plan(home_config, target_config)
+    planning_time = time.time() - start_time
+    
+    if not planning_success:
+        print("❌ RRT planning failed")
+        return
+    
+    print(f"✅ RRT planning succeeded!")
+    print(f"  Planning time: {planning_time:.3f}s")
+    print(f"  Path length: {len(trajectory)} waypoints")
+    
+    # Analyze trajectory
+    if len(trajectory) >= 2:
+        trajectory_array = np.array(trajectory)
+        distances = [np.linalg.norm(trajectory_array[i+1] - trajectory_array[i]) 
+                    for i in range(len(trajectory_array)-1)]
+        total_distance = sum(distances)
+        max_step = max(distances) if distances else 0
+        avg_step = np.mean(distances) if distances else 0
         
-        # Create viewer for demonstration
-        with mujoco.viewer.launch_passive(model, data) as viewer_handle:
-            print()
-            print("🎯 Demonstration sequence:")
-            print("Starting at home position...")
-            viewer_handle.sync()
-            time.sleep(2)
+        print(f"  Total joint space distance: {total_distance:.3f} rad")
+        print(f"  Max step size: {max_step:.3f} rad")
+        print(f"  Avg step size: {avg_step:.3f} rad")
+    
+    # Step 3: Execute the RRT path
+    print()
+    print("Step 3: Executing RRT path...")
+    
+    # Create viewer for demonstration
+    with mujoco.viewer.launch_passive(model, data) as viewer_handle:
+        print()
+        print("🎯 RRT Path Execution:")
+        print("Starting at home position...")
+        viewer_handle.sync()
+        time.sleep(2)
+        
+        print("Executing RRT path...")
+        print("Notice the path found by the RRT algorithm!")
+        
+        # Execute the RRT trajectory
+        for i, waypoint in enumerate(trajectory):
+            data.qpos[:7] = waypoint
+            data.ctrl[:7] = waypoint
             
-            # Move to target configuration gradually
-            print("Moving to target position...")
-            
-            # Interpolate between current and target configuration
-            steps = 100
-            for i in range(steps + 1):
-                alpha = i / steps
-                current_config = (1 - alpha) * home_config + alpha * target_config
-                
-                data.qpos[:7] = current_config
-                data.ctrl[:7] = current_config
+            # Step simulation multiple times for smooth visualization
+            for _ in range(8):  # 8 steps per waypoint for smooth motion
                 mujoco.mj_step(model, data)
                 viewer_handle.sync()
-                time.sleep(0.02)
+                time.sleep(0.02)  # Slower for better visualization
             
-            # Check final accuracy
-            final_gripper_pos, _ = ik_solver.get_end_effector_pose(target_config)
-            final_error = np.linalg.norm(final_gripper_pos - target_position)
-            
-            print(f"Target reached!")
-            print(f"   Final gripper center error: {final_error*100:.1f}cm")
-            print("Press Ctrl+C to exit...")
-            
-            try:
-                while True:
-                    mujoco.mj_step(model, data)
-                    viewer_handle.sync()
-                    time.sleep(0.01)
-            except KeyboardInterrupt:
-                print("Exiting...")
-                
-    else:
-        print("❌ IK failed - target may be unreachable")
+            # Show progress
+            if i % max(1, len(trajectory)//4) == 0:
+                current_gripper_pos, _ = ik_solver.get_end_effector_pose(waypoint)
+                distance_to_target = np.linalg.norm(current_gripper_pos - target_position)
+                print(f"  Waypoint {i+1}/{len(trajectory)}: Distance to target = {distance_to_target*100:.1f}cm")
         
-        # Still show the scene for debugging
-        with mujoco.viewer.launch_passive(model, data) as viewer_handle:
-            print("Opening viewer for debugging...")
-            try:
-                while True:
-                    mujoco.mj_step(model, data)
-                    viewer_handle.sync()
-                    time.sleep(0.01)
-            except KeyboardInterrupt:
-                print("Exiting...")
+        # Check final accuracy
+        final_gripper_pos, _ = ik_solver.get_end_effector_pose(trajectory[-1])
+        final_error = np.linalg.norm(final_gripper_pos - target_position)
+        
+        print(f"Target reached!")
+        print(f"   Final gripper center error: {final_error*100:.1f}cm")
+        print()
+        print("🎉 RRT path execution complete!")
+        print("   Key features of RRT:")
+        print("   ✅ Explores configuration space randomly")
+        print("   ✅ Can handle complex obstacles")
+        print("   ✅ Probabilistically complete")
+        print("   ✅ Fast planning for most problems")
+        print()
+        print("Press Ctrl+C to exit...")
+        
+        try:
+            while True:
+                mujoco.mj_step(model, data)
+                viewer_handle.sync()
+                time.sleep(0.001)
+        except KeyboardInterrupt:
+            print("Exiting...")
 
 if __name__ == "__main__":
     main() 

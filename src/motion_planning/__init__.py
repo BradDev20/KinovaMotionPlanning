@@ -8,7 +8,7 @@ This package provides:
 """
 
 from .kinematics import KinematicsSolver
-from .planners import RRTPlanner, MotionPlannerFactory
+from .planners import RRTPlanner, TrajOptPlanner, MotionPlannerFactory, Obstacle, SafetyImportanceCostFunction
 from .integration import MotionPlanningInterface, TrajectoryVisualizer
 
-__all__ = ['KinematicsSolver', 'RRTPlanner', 'MotionPlannerFactory', 'MotionPlanningInterface', 'TrajectoryVisualizer'] 
+__all__ = ['KinematicsSolver', 'RRTPlanner', 'TrajOptPlanner', 'MotionPlannerFactory', 'Obstacle', 'SafetyImportanceCostFunction', 'MotionPlanningInterface', 'TrajectoryVisualizer'] 

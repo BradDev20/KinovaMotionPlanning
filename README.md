@@ -55,10 +55,10 @@ You will see a rendered green sphere that the robot is trying to move to, and th
 
 ## Cost-based Motion Planning
 In order to instantiate multiple objectives, we need to represent the moiton planning problem as the minimization of a cost function.
-
-### Distance to Goal Minimization
-In this case, we simply do trajectory optimization on the state of the robot.
-TODO: TrajOpt?
+TODO: Add some example/test scripts here
 
 ## Multi-Objective Motion Planning
-TODO: Implemented Custom Cost Functions?
+A simple example of weighted planning can be ran with
+```
+mjpython src/examples/trajopt_visualization_demo.py
+```
