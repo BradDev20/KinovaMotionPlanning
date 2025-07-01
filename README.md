@@ -40,11 +40,15 @@ mjpython -m src.examples.test_vel_ctrl
 
 ## Sample-based Motion Planning - RRT
 
-Test naive RRT to go to a couple of joint positions
-```
-mjpython -m src.examples.working_motion_demo
-```
-You will see the robot moving around as it navigates to some nearby joint states.
+[//]: # (Test naive RRT to go to a couple of joint positions)
+
+[//]: # (```)
+
+[//]: # (mjpython -m src.examples.working_motion_demo)
+
+[//]: # (```)
+
+[//]: # (You will see the robot moving around as it navigates to some nearby joint states.)
 
 Test RRT to go to a rendered goal position in EE space
 ```
