@@ -1,5 +1,7 @@
 """
 Kinematics module using MuJoCo for forward/inverse kinematics
+
+Limits are set according to the specifications found here: https://github.com/NVlabs/curobo/blob/main/src/curobo/content/assets/robot/kinova/kinova_gen3_7dof.urdf
 """
 
 import numpy as np
@@ -18,32 +20,32 @@ class KinematicsSolver:
         self.end_effector_body = 10  # gripper_base for reference
         self.right_pad_body = 16     # right_silicone_pad  
         self.left_pad_body = 22      # left_silicone_pad
+        self.arm_dofs = 7  # 7 DOF for Kinova Gen3
         
-        # Proper joint limits for Kinova Gen3 (in radians)
-        # Based on actual robot specs: some joints unlimited, others have physical limits
+        # Joint limits based on Kinova Gen3 specifications
         self.joint_limits_lower = np.array([
-            -np.inf,  # joint_1: unlimited rotation
-            -2.24,    # joint_2: shoulder pitch
-            -np.inf,  # joint_3: unlimited rotation  
-            -2.57,    # joint_4: elbow flex
-            -np.inf,  # joint_5: unlimited rotation
-            -2.09,    # joint_6: wrist pitch
-            -np.inf   # joint_7: unlimited rotation
+            -6.0,  # joint_1
+            -2.41,  # joint_2
+            -6.0,  # joint_3
+            -2.66,  # joint_4
+            -6.0,  # joint_5
+            -2.23,  # joint_6
+            -6.0   # joint_7
         ])
-        
+
         self.joint_limits_upper = np.array([
-            np.inf,   # joint_1: unlimited rotation
-            2.24,     # joint_2: shoulder pitch
-            np.inf,   # joint_3: unlimited rotation
-            2.57,     # joint_4: elbow flex
-            np.inf,   # joint_5: unlimited rotation
-            2.09,     # joint_6: wrist pitch
-            np.inf    # joint_7: unlimited rotation
+            6.0,  # joint_1
+            2.41,  # joint_2
+            6.0,  # joint_3
+            2.66,  # joint_4
+            6.0,  # joint_5
+            2.23,  # joint_6
+            6.0   # joint_7
         ])
         
         # For optimization, use reasonable bounds for unlimited joints
-        self.optimization_limits_lower = np.array([-3.14, -2.24, -3.14, -2.57, -3.14, -2.09, -3.14])
-        self.optimization_limits_upper = np.array([3.14, 2.24, 3.14, 2.57, 3.14, 2.09, 3.14])
+        self.optimization_limits_lower = self.joint_limits_lower.copy()
+        self.optimization_limits_upper = self.joint_limits_upper.copy()
         
         # Backup current state
         self._backup_qpos = None
@@ -95,19 +97,11 @@ class KinematicsSolver:
             max_iterations: Maximum optimization iterations
         """
         if initial_guess is None:
-            initial_guess = np.zeros(7)  # 7 DOF for Kinova Gen3
+            initial_guess = np.zeros(self.arm_dofs)  # 7 DOF for Kinova Gen3
         
-        # Joint limits for Kinova Gen3 (approximate)
-        joint_limits = [
-            (-2.9, 2.9),    # Joint 1: ±166°
-            (-2.1, 2.1),    # Joint 2: ±120°  
-            (-2.9, 2.9),    # Joint 3: ±166°
-            (-2.1, 2.1),    # Joint 4: ±120°
-            (-2.9, 2.9),    # Joint 5: ±166°
-            (-2.1, 2.1),    # Joint 6: ±120°
-            (-2.9, 2.9),    # Joint 7: ±166°
-        ]
-        
+        # Joint limits for Kinova Gen3
+        bounds = list(zip(self.joint_limits_lower, self.joint_limits_upper))
+
         def objective(joint_positions):
             try:
                 current_position, current_orientation = self.forward_kinematics(joint_positions)
@@ -126,13 +120,14 @@ class KinematicsSolver:
                 
             except Exception as e:
                 return 1e6  # Large penalty for invalid configurations
-        
+
+
         # Optimize
         result = minimize(
             objective,
             initial_guess,
             method='L-BFGS-B',
-            bounds=joint_limits,
+            bounds=bounds,
             options={'maxiter': max_iterations, 'ftol': tolerance}
         )
 
