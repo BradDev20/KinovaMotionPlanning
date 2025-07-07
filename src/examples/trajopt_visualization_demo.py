@@ -21,14 +21,14 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from motion_planning.kinematics import KinematicsSolver
-from motion_planning.planners import (
-    TrajOptPlanner,
+from motion_planning.TrajOpt import TrajOptPlanner
+from motion_planning.utils import Obstacle
+from motion_planning.cost_functions import (
     TrajectoryLengthCostFunction,
     SafetyImportanceCostFunction,
     ObstacleAvoidanceCostFunction,
     VelocityCostFunction,
-    AccelerationCostFunction,
-    Obstacle
+    AccelerationCostFunction
 )
 
 # Define multiple obstacles for the demo
