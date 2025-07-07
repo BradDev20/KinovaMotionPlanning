@@ -126,10 +126,11 @@ class KinematicsSolver:
         result = minimize(
             objective,
             initial_guess,
-            method='L-BFGS-B',
+            method='L-BFGS-B',  #TODO: consider using 'SLSQP' (Sequential Least Squares Programming) for constraints
             bounds=bounds,
             options={'maxiter': max_iterations, 'ftol': tolerance}
         )
+        # Documentation for SLSQP found here - https://docs.scipy.org/doc/scipy/tutorial/optimize.html#sequential-least-squares-programming-slsqp-algorithm-method-slsqp
 
         print(f"IK result: {result}")
         
@@ -146,4 +147,4 @@ class KinematicsSolver:
     
     def get_joint_limits(self) -> Tuple[np.ndarray, np.ndarray]:
         """Get joint limits for planning"""
-        return self.joint_limits_lower.copy(), self.joint_limits_upper.copy() 
+        return self.joint_limits_lower.copy(), self.joint_limits_upper.copy()
