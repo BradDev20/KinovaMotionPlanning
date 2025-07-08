@@ -21,7 +21,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from motion_planning.kinematics import KinematicsSolver
-from motion_planning.TrajOpt import TrajOptPlanner
+from motion_planning.unconstrained_trajopt import UnconstrainedTrajOptPlanner
 from motion_planning.utils import Obstacle
 from motion_planning.cost_functions import (
     TrajectoryLengthCostFunction,
@@ -164,7 +164,7 @@ def plan_trajectory_with_multi_obstacle_avoidance(model, data, kinematics):
     
     # Create TrajOpt planner
     print(f"\nStep 2: Setting up TrajOpt planner...")
-    planner = TrajOptPlanner(model, data, n_waypoints=50, dt=0.1)  # Reasonable waypoints and dt
+    planner = UnconstrainedTrajOptPlanner(model, data, n_waypoints=50, dt=0.1)  # Reasonable waypoints and dt
     
     # Add cost functions with carefully tuned weights
     print("Adding cost functions:")
