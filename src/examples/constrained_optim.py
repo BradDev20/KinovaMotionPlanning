@@ -21,7 +21,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from motion_planning.kinematics import KinematicsSolver
-from motion_planning.unconstrained_trajopt import UnconstrainedTrajOptPlanner
+from motion_planning.constrained_trajopt import ConstrainedTrajOptPlanner
 from motion_planning.utils import Obstacle
 from motion_planning.cost_functions import (
     TrajectoryLengthCostFunction,
@@ -113,28 +113,18 @@ def create_scene_with_virtual_obstacles():
 def plan_trajectory_with_multi_obstacle_avoidance(model, data, kinematics):
     """Plan trajectory using TrajOpt with multi-obstacle avoidance"""
     
-    print("=== TrajOpt Planning with Multi-Obstacle Avoidance ===")
-    
     # Define start configuration
     start_config = np.array([0.0, 0.5, 0.0, -1.5, 0.0, 1.0, 0.0])  # Home position
-    
-    # Define TARGET as Cartesian position (matching the green sphere in visualization)
     target_position = np.array([0.6, -0.3, 0.4])  # This matches the green sphere position in XML
     
-    print(f"Target Cartesian position: [{target_position[0]:.3f}, {target_position[1]:.3f}, {target_position[2]:.3f}]")
-    
     # Get start end-effector position for reference
-    start_ee_pos, _ = kinematics.forward_kinematics(start_config)
-    print(f"Start EE position: [{start_ee_pos[0]:.3f}, {start_ee_pos[1]:.3f}, {start_ee_pos[2]:.3f}]")
-    
-    # Step 1: Use inverse kinematics to find goal configuration
-    print("\nStep 1: Solving inverse kinematics for target position...")
+    start_ee_pos, _ = kinematics.forward_kinematics(start_config)    
     goal_config, ik_success = kinematics.inverse_kinematics(
         target_position,
         initial_guess=start_config,
         tolerance=0.001,
         max_iterations=2000
-    )
+    ) # Use inverse kinematics to find goal configuration
     
     if not ik_success:
         print("IK failed - target may be unreachable")
@@ -146,36 +136,19 @@ def plan_trajectory_with_multi_obstacle_avoidance(model, data, kinematics):
     # Verify the IK solution
     goal_ee_pos, _ = kinematics.forward_kinematics(goal_config)
     ik_error = np.linalg.norm(goal_ee_pos - target_position)
-    print(f"IK verification - Goal EE position: [{goal_ee_pos[0]:.3f}, {goal_ee_pos[1]:.3f}, {goal_ee_pos[2]:.3f}]")
-    print(f"IK error: {ik_error*1000:.1f}mm")
-    
-    # Display obstacle information
-    print(f"\nMultiple obstacles defined:")
-    for i, obstacle in enumerate(obstacles):
-        print(f"  Obstacle {i+1}: center=({obstacle.center[0]:.2f}, {obstacle.center[1]:.2f}, {obstacle.center[2]:.2f}), "
-              f"radius={obstacle.radius:.3f}m, safety={obstacle.safe_distance:.3f}m")
-    
-    # Check distances from start and goal to all obstacles
-    print("\nDistance analysis:")
-    for i, obstacle in enumerate(obstacles):
-        start_dist = np.linalg.norm(start_ee_pos - obstacle.center) - obstacle.radius
-        goal_dist = np.linalg.norm(goal_ee_pos - obstacle.center) - obstacle.radius
-        print(f"  Obstacle {i+1}: Start={start_dist:.3f}m, Goal={goal_dist:.3f}m from surface")
     
     # Create TrajOpt planner
-    print(f"\nStep 2: Setting up TrajOpt planner...")
-    planner = UnconstrainedTrajOptPlanner(model, data, n_waypoints=50, dt=0.1)  # Reasonable waypoints and dt
-    
-    # Add cost functions with carefully tuned weights
-    print("Adding cost functions:")
-    
-    # Choose between different planning strategies
-    print("\nChoose planning strategy:")
-    print("  [1] RISKY: Trajectory length minimization (threads between obstacles)")
-    print("  [2] SAFE: Safety importance (goes around obstacles)")
+    planner = ConstrainedTrajOptPlanner(
+        model, 
+        data, 
+        n_waypoints=50, 
+        dt=0.1,
+        max_velocity=1.0,
+        max_acceleration=0.5
+    )  # Reasonable waypoints and dt
     
     try:
-        strategy_choice = input("Enter choice (1 or 2, default=2): ").strip()
+        strategy_choice = "1"
         if strategy_choice == '1':
             # RISKY Strategy: Prioritize short paths
             print("\nRISKY Strategy Selected: Prioritizing trajectory length")
@@ -231,22 +204,12 @@ def plan_trajectory_with_multi_obstacle_avoidance(model, data, kinematics):
         weight=200.0  # Reduced weight to prevent numerical issues
     )
     planner.add_cost_function(obstacle_cost)
-    print(f"  ✓ Multi-obstacle avoidance (weight: 200.0)")
-    print(f"    - Avoiding {len(obstacles)} obstacles simultaneously")
-    print(f"    - Safety importance: {safety_description}")
     
-    # 3. Velocity smoothness (low weight)
-    velocity_cost = VelocityCostFunction(weight=2)
-    planner.add_cost_function(velocity_cost)
-    print("  ✓ Velocity smoothness (weight: 0.2)")
-    
-    # 4. Acceleration smoothness (very low weight)
-    acceleration_cost = AccelerationCostFunction(weight=2)
-    planner.add_cost_function(acceleration_cost)
-    print("  ✓ Acceleration smoothness (weight: 0.05)")
+    # Note: Velocity and acceleration are now handled as constraints, not cost functions
+    print("  ✓ Velocity constraints (max 2.0 rad/s)")
+    print("  ✓ Acceleration constraints (max 10.0 rad/s²)")
     
     # Plan trajectory from start_config to goal_config (found by IK)
-    print(f"\nStep 3: Planning optimal trajectory...")
     start_time = time.time()
     trajectory, success = planner.plan(start_config, goal_config)
     planning_time = time.time() - start_time
@@ -305,9 +268,6 @@ def plan_trajectory_with_multi_obstacle_avoidance(model, data, kinematics):
 
 def execute_trajectory_in_current_viewer(viewer_handle, model, data, kinematics, trajectory):
     """Execute trajectory in the already open MuJoCo viewer with tracing and replay"""
-    
-    print("\n=== Multi-Obstacle Trajectory Execution ===")
-    
     # Get target position from the scene (green sphere)
     target_position = np.array([0.6, -0.3, 0.4])  # Matches green sphere position
     
@@ -334,14 +294,6 @@ def execute_trajectory_in_current_viewer(viewer_handle, model, data, kinematics,
     
     def execute_single_trajectory():
         """Execute the trajectory once with tracing"""
-        print("\n🎯 TrajOpt Multi-Obstacle Trajectory Execution:")
-        print("Watch how the robot reaches the GREEN TARGET while avoiding MULTIPLE COLORED OBSTACLES!")
-        print("Blue dots will trace the end-effector path!")
-        
-        print(f"  - Green sphere: TARGET position (end-effector goal)")
-        print(f"  - Target position: [{target_position[0]:.3f}, {target_position[1]:.3f}, {target_position[2]:.3f}]")
-        print("  - Red spheres: Multiple obstacles to avoid")
-        print("  - Blue dots: End-effector trajectory trace")
         for i, obstacle in enumerate(obstacles):
             print(f"    • Obstacle {i+1}: center=({obstacle.center[0]:.2f}, {obstacle.center[1]:.2f}, {obstacle.center[2]:.2f}), "
                   f"radius={obstacle.radius:.3f}m")
@@ -397,11 +349,6 @@ def execute_trajectory_in_current_viewer(viewer_handle, model, data, kinematics,
                 closest_obs_idx = np.argmin(obstacle_distances)
                 closest_dist = obstacle_distances[closest_obs_idx]
                 safety_status = "✅ Safe" if closest_dist >= obstacles[closest_obs_idx].safe_distance else "⚠ CLOSE"
-                
-                print(f"  Waypoint {i+1:3d}/{len(trajectory)}: "
-                      f"EE=({current_ee_pos[0]:.2f}, {current_ee_pos[1]:.2f}, {current_ee_pos[2]:.2f}), "
-                      f"→Target={distance_to_target*1000:.0f}mm, "
-                      f"ClosestObs={closest_dist:.3f}m {safety_status}")
         
         # Final update of trajectory trace
         update_trajectory_trace(ee_positions)
@@ -410,7 +357,6 @@ def execute_trajectory_in_current_viewer(viewer_handle, model, data, kinematics,
         final_ee_pos, _ = kinematics.forward_kinematics(trajectory[-1])
         final_target_error = np.linalg.norm(final_ee_pos - target_position)
         
-        print(f"\n🎯 FINAL MULTI-OBSTACLE RESULTS:")
         print(f"  Target reached! Final error: {final_target_error*1000:.1f}mm")
         print(f"  End-effector final position: [{final_ee_pos[0]:.3f}, {final_ee_pos[1]:.3f}, {final_ee_pos[2]:.3f}]")
         print(f"  Target position:           [{target_position[0]:.3f}, {target_position[1]:.3f}, {target_position[2]:.3f}]")
@@ -430,24 +376,6 @@ def execute_trajectory_in_current_viewer(viewer_handle, model, data, kinematics,
     # Execute trajectory for the first time
     execute_single_trajectory()
     
-    # Interactive replay loop
-    print("\n🎉 Multi-obstacle trajectory execution complete!")
-    print("\nDemonstrated Multi-Obstacle TrajOpt features:")
-    print("  🎯 Cartesian Goal Specification:")
-    print("     → Goal defined as Cartesian position (green sphere)")
-    print("     → Inverse kinematics solved for joint configuration")
-    print("  📏 Trajectory Length Minimization:")
-    print("     → Optimized path length in joint space")
-    print("  🚧 Multi-Obstacle Avoidance:")
-    print(f"     → Simultaneously avoided {len(obstacles)} obstacles")
-    print("     → Each obstacle has individual radius and safety margins")
-    print("     → Flexible obstacle configuration via dataclass")
-    print("  🔧 Advanced Multi-objective optimization:")
-    print("     → Balanced: short path + multi-obstacle safety + smoothness + accuracy")
-    print("  🔵 Trajectory Tracing:")
-    print("     → Blue dots show end-effector path in real-time")
-    print("     → Visual feedback for trajectory quality assessment")
-    print()
     
     # Interactive controls
     while True:
