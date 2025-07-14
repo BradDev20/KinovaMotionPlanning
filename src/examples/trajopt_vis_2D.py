@@ -34,10 +34,15 @@ from motion_planning.cost_functions import (
 )
 
 # Define multiple obstacles for the demo
+# obstacles = [
+#     Obstacle(center=np.array([-0.55, -0.1, 0.529]), radius=0.08, safe_distance=0.05),
+#     # Obstacle(center=np.array([0.6, -0.3, 0.8]), radius=0.2, safe_distance=0.05),
+#     Obstacle(center=np.array([-0.55, 0.25, 0.529]), radius=0.08, safe_distance=0.05),
+# ]
 obstacles = [
-    Obstacle(center=np.array([-0.6, -0.1, 0.529]), radius=0.08, safe_distance=0.05),
+    Obstacle(center=np.array([-0.5, -0.1, 0.529]), radius=0.08, safe_distance=0.05),
     # Obstacle(center=np.array([0.6, -0.3, 0.8]), radius=0.2, safe_distance=0.05),
-    Obstacle(center=np.array([-0.6, 0.25, 0.529]), radius=0.08, safe_distance=0.05),
+    Obstacle(center=np.array([-0.5, 0.2, 0.529]), radius=0.08, safe_distance=0.05),
 ]
 
 
@@ -72,7 +77,7 @@ def create_scene_with_virtual_obstacles():
     # Add target position marker
     target_xml = '''
     <!-- Target position marker -->
-    <body name="target_marker" pos="-0.8 0.1 0.529">
+    <body name="target_marker" pos="-0.6 0.1 0.529">
         <geom name="target_geom" type="sphere" size="0.03" 
               rgba="0.0 0.8 0.0 0.8" material="" contype="0" conaffinity="0"/>
         <site name="target_center" pos="0 0 0" size="0.005" rgba="0 1 0 1"/>
@@ -121,7 +126,7 @@ def plan_trajectory_with_multi_obstacle_avoidance(model, data, kinematics, strat
     start_config = np.array([0.0, 0.5, 0.0, -2.5, 0.0, 0.45, 1.57])  # Home position
     
     # Define TARGET as Cartesian position (matching the green sphere in visualization)
-    target_position = np.array([-0.8, 0.1, 0.529])  # This matches the green sphere position in XML
+    target_position = np.array([-0.6, 0.1, 0.529])  # This matches the green sphere position in XML
     
     print(f"Target Cartesian position: [{target_position[0]:.3f}, {target_position[1]:.3f}, {target_position[2]:.3f}]")
     
