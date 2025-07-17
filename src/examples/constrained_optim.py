@@ -144,66 +144,46 @@ def plan_trajectory_with_multi_obstacle_avoidance(model, data, kinematics):
         n_waypoints=50, 
         dt=0.1,
         max_velocity=1.0,
-        max_acceleration=0.5
+        max_acceleration=0.7
     )  # Reasonable waypoints and dt
     
     try:
-        strategy_choice = "1"
+        strategy_choice = "2"
         if strategy_choice == '1':
-            # RISKY Strategy: Prioritize short paths
-            print("\nRISKY Strategy Selected: Prioritizing trajectory length")
-            length_cost = TrajectoryLengthCostFunction(weight=10.0)  # High weight for short paths
-            planner.add_cost_function(length_cost)
-            print("  ✓ Trajectory length minimization (weight: 10.0 - HIGH)")
-            
-            safety_weight = 0.1  # Very low safety importance
-            safety_description = "minimal"
+            length_weight = 1.0
+            safety_weight = 0.0
         else:
-            # SAFE Strategy: Prioritize safety (default)
-            print("\nSAFE Strategy Selected: Prioritizing safety importance")
-            length_cost = TrajectoryLengthCostFunction(weight=0.01)  # Low weight for path length
-            planner.add_cost_function(length_cost)
-            print("  ✓ Trajectory length minimization (weight: 1.0 - LOW)")
-            
-            # Add safety importance cost function
-            safety_cost = SafetyImportanceCostFunction(
-                kinematics_solver=kinematics,
-                obstacles=obstacles,
-                weight=300.0,  # High weight for safety
-                safety_radius_multiplier=4.0
-            )
-            planner.add_cost_function(safety_cost)
-            print("  ✓ Safety importance (weight: 20.0 - HIGH)")
-            
-            safety_weight = 300.0
-            safety_description = "high"
-            
-    except (KeyboardInterrupt, EOFError):
-        # Default to safe strategy
-        print("\n🔵 SAFE Strategy Selected (default)")
-        length_cost = TrajectoryLengthCostFunction(weight=1.0)
+            length_weight = 0.0
+            safety_weight = 1.0
+
+        # RISKY Strategy: Prioritize short paths
+        length_cost = TrajectoryLengthCostFunction(
+            weight=length_weight,
+            normalization_bounds=(1.0, 2.0)
+        )  # High weight for short paths
         planner.add_cost_function(length_cost)
-        print("  ✓ Trajectory length minimization (weight: 1.0 - LOW)")
-        
-        safety_cost = SafetyImportanceCostFunction(
+
+        # Add safety importance cost function
+        safety_cost = ObstacleAvoidanceCostFunction(
             kinematics_solver=kinematics,
             obstacles=obstacles,
-            weight=20.0,
-            safety_radius_multiplier=3.0
+            weight=safety_weight,  # High weight for safety
+            normalization_bounds=(10.0, 20.0)
         )
         planner.add_cost_function(safety_cost)
-        print("  ✓ Safety importance (weight: 20.0 - HIGH)")
-        
-        safety_weight = 20.0
-        safety_description = "high"
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
+
     
     # 2. Multi-obstacle avoidance (moderate weight for stability)
-    obstacle_cost = ObstacleAvoidanceCostFunction(
-        kinematics_solver=kinematics,
-        obstacles=obstacles,
-        weight=200.0  # Reduced weight to prevent numerical issues
-    )
-    planner.add_cost_function(obstacle_cost)
+    # obstacle_cost = ObstacleAvoidanceCostFunction(
+    #     kinematics_solver=kinematics,
+    #     obstacles=obstacles,
+    #     weight=200.0  # Reduced weight to prevent numerical issues
+    # )
+    # planner.add_cost_function(obstacle_cost)
     
     # Note: Velocity and acceleration are now handled as constraints, not cost functions
     print("  ✓ Velocity constraints (max 2.0 rad/s)")

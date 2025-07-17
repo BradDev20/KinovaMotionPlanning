@@ -141,8 +141,10 @@ class SmoothnessCostFunction(CostFunction):
 class TrajectoryLengthCostFunction(CostFunction):
     """Cost function for minimizing total trajectory length in joint space"""
 
-    def __init__(self, weight: float = 1.0):
+    def __init__(self, weight: float = 1.0, normalization_bounds: Tuple[float, float] = (0.0, 1.0)):
+        assert 1 >= weight >= 0, "Weight must be between 0 and 1"
         super().__init__(weight)
+        self.normalization_bounds = normalization_bounds
 
     def compute_cost(self, trajectory: np.ndarray, dt: float = 0.1) -> float:
         """Compute total trajectory length cost"""
@@ -153,7 +155,10 @@ class TrajectoryLengthCostFunction(CostFunction):
         distances = np.linalg.norm(np.diff(trajectory, axis=0), axis=1)
         total_length = np.sum(distances)
 
-        return float(self.weight * total_length)
+        # Normalize cost to be between 0 and 1
+        normalized_cost = (total_length - self.normalization_bounds[0]) / (self.normalization_bounds[1] - self.normalization_bounds[0])
+
+        return float(self.weight * normalized_cost)
 
     def compute_gradient(self, trajectory: np.ndarray, dt: float = 0.1) -> np.ndarray:
         """Compute analytical gradient for trajectory length cost"""
@@ -184,7 +189,8 @@ class ObstacleAvoidanceCostFunction(CostFunction):
     def __init__(self,
                  kinematics_solver: KinematicsSolver,
                  obstacles: List[Obstacle],
-                 weight: float = 1.0):
+                 weight: float = 1.0,
+                 normalization_bounds: Tuple[float, float] = (0.0, 1.0)):
         """
         Initialize obstacle avoidance cost function
 
@@ -193,12 +199,14 @@ class ObstacleAvoidanceCostFunction(CostFunction):
             obstacles: List of Obstacle instances to avoid
             weight: Cost function weight
         """
+        assert 1 >= weight >= 0, "Weight must be between 0 and 1"
         super().__init__(weight)
         self.kinematics_solver = kinematics_solver
         self.obstacles = obstacles if obstacles else []
+        self.normalization_bounds = normalization_bounds
 
     def compute_cost(self, trajectory: np.ndarray, dt: float = 0.1) -> float:
-        """Compute obstacle avoidance cost for all obstacles"""
+        """Compute obstacle avoidance cost as pure distance measure from nearest obstacle"""
         if not self.obstacles:
             return 0.0
 
@@ -212,32 +220,37 @@ class ObstacleAvoidanceCostFunction(CostFunction):
                 # Get end-effector position for this waypoint
                 ee_position, _ = self.kinematics_solver.forward_kinematics(waypoint)
 
-                # Check against all obstacles
+                # Find minimum distance to any obstacle surface
+                min_distance_to_surface = float('inf')
+                
                 for obstacle in self.obstacles:
                     # Compute distance to obstacle center
-                    distance_to_obstacle = np.linalg.norm(ee_position - obstacle.center)
-
-                    # Always apply cost based on proximity to obstacles
-                    if distance_to_obstacle < obstacle.danger_threshold:
-                        # Strong quadratic penalty for violations
-                        violation = obstacle.danger_threshold - distance_to_obstacle
-                        total_cost += violation ** 2
-                    else:
-                        # Soft attractive force to maintain distance (for better gradients)
-                        safe_zone = obstacle.danger_threshold * 1.5  # 50% larger safe zone
-                        if distance_to_obstacle < safe_zone:
-                            proximity_factor = (safe_zone - distance_to_obstacle) / (
-                                        safe_zone - obstacle.danger_threshold)
-                            total_cost += 0.01 * proximity_factor ** 2  # Small cost for being near
+                    distance_to_center = np.linalg.norm(ee_position - obstacle.center)
+                    # Distance to obstacle surface (negative if inside obstacle)
+                    distance_to_surface = distance_to_center - obstacle.radius
+                    
+                    min_distance_to_surface = min(min_distance_to_surface, float(distance_to_surface))
+                
+                # Pure distance-based cost: higher cost for being closer to obstacles
+                # Use polynomial cost for smoother gradients
+                if min_distance_to_surface <= 0:
+                    # Inside obstacle - quadratic penalty
+                    total_cost += 100.0 * (1.0 - min_distance_to_surface) ** 2
+                else:
+                    # Outside obstacle - inverse quadratic decay with distance
+                    # Cost decreases as 1/(1 + distance)^2
+                    total_cost += 1.0 / ((1.0 + min_distance_to_surface) ** 2)
 
         finally:
             # Restore original state
             self.kinematics_solver._restore_state()
 
-        return float(self.weight * total_cost)
+        # Normalize cost to be between 0 and 1
+        normalized_cost = (total_cost - self.normalization_bounds[0]) / (self.normalization_bounds[1] - self.normalization_bounds[0])
+        return float(self.weight * normalized_cost)
 
     def compute_gradient(self, trajectory: np.ndarray, dt: float = 0.1) -> np.ndarray:
-        """Compute simplified analytical gradient for obstacle avoidance cost"""
+        """Compute analytical gradient for pure distance-based obstacle avoidance cost"""
         if not self.obstacles:
             return np.zeros_like(trajectory)
 
@@ -248,10 +261,10 @@ class ObstacleAvoidanceCostFunction(CostFunction):
 
         try:
             for i, waypoint in enumerate(trajectory):
-                # Get end-effector position and Jacobian
+                # Get end-effector position
                 ee_position, _ = self.kinematics_solver.forward_kinematics(waypoint)
 
-                # Simplified Jacobian computation - just use finite differences on position
+                # Simplified Jacobian computation - finite differences on position
                 eps = 1e-4
                 jacobian = np.zeros((3, len(waypoint)))
 
@@ -261,33 +274,42 @@ class ObstacleAvoidanceCostFunction(CostFunction):
                     ee_plus, _ = self.kinematics_solver.forward_kinematics(waypoint_plus)
                     jacobian[:, j] = (ee_plus - ee_position) / eps
 
-                # Compute gradient contribution for each obstacle
+                # Find the closest obstacle to determine gradient direction
+                min_distance_to_surface = float('inf')
+                closest_obstacle = None
+                closest_distance_vec = None
+                closest_distance_to_center = None
+                
                 for obstacle in self.obstacles:
                     # Distance to obstacle center
                     distance_vec = ee_position - obstacle.center
-                    distance_to_obstacle = np.linalg.norm(distance_vec)
+                    distance_to_center = np.linalg.norm(distance_vec)
+                    # Distance to obstacle surface
+                    distance_to_surface = distance_to_center - obstacle.radius
+                    
+                    if distance_to_surface < min_distance_to_surface:
+                        min_distance_to_surface = distance_to_surface
+                        closest_obstacle = obstacle
+                        closest_distance_vec = distance_vec
+                        closest_distance_to_center = distance_to_center
 
-                    # Unit vector pointing away from obstacle center
-                    if distance_to_obstacle > 1e-8:
-                        unit_vec = distance_vec / distance_to_obstacle
+                # Compute gradient based on closest obstacle
+                if (closest_obstacle is not None and 
+                    closest_distance_to_center is not None and 
+                    closest_distance_vec is not None and 
+                    closest_distance_to_center > 1e-8):
+                    # Unit vector pointing away from closest obstacle center
+                    unit_vec = closest_distance_vec / closest_distance_to_center
+                    
+                    # Compute cost gradient based on distance regime
+                    if min_distance_to_surface <= 0:
+                        # Inside obstacle - gradient of quadratic penalty
+                        # d/dx[100 * (1 - distance_to_surface)^2] = -200 * (1 - distance_to_surface)
+                        cost_gradient = -200.0 * (1.0 - min_distance_to_surface) * unit_vec
                     else:
-                        unit_vec = np.array([1.0, 0.0, 0.0])  # Arbitrary direction
-
-                    # Compute gradient based on distance regime
-                    if distance_to_obstacle < obstacle.danger_threshold:
-                        # Gradient of squared violation cost
-                        violation = obstacle.danger_threshold - distance_to_obstacle
-                        cost_gradient = -2 * violation * unit_vec
-                    else:
-                        # Gradient of proximity cost in safe zone
-                        safe_zone = obstacle.danger_threshold * 1.5
-                        if distance_to_obstacle < safe_zone:
-                            proximity_factor = (safe_zone - distance_to_obstacle) / (
-                                        safe_zone - obstacle.danger_threshold)
-                            cost_gradient = -2 * 0.01 * proximity_factor * unit_vec / (
-                                        safe_zone - obstacle.danger_threshold)
-                        else:
-                            cost_gradient = np.zeros(3)  # No gradient outside safe zone
+                        # Outside obstacle - gradient of inverse quadratic decay
+                        # d/dx[1/(1 + distance_to_surface)^2] = -2/(1 + distance_to_surface)^3
+                        cost_gradient = -2.0 / ((1.0 + min_distance_to_surface) ** 3) * unit_vec
 
                     # Chain rule: gradient w.r.t. joint angles
                     gradient[i] += jacobian.T @ cost_gradient

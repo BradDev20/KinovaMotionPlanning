@@ -255,10 +255,9 @@ class ConstrainedTrajOptPlanner(UnconstrainedTrajOptPlanner):
                 bounds=bounds,
                 constraints=constraints,
                 options={
-                    'maxiter': 500,  # More iterations for complex scenarios
+                    'maxiter': 1000,  # More iterations for constraint satisfaction
                     'ftol': 1e-6,  # Tighter tolerance for better convergence
-                    'gtol': 1e-5,  # Tighter gradient tolerance
-                    'maxfun': 1000,  # Limit function evaluations to prevent hanging
+                    'maxfun': 2000,  # More function evaluations for constraints
                     'disp': False  # Suppress verbose output
                 }
             )
