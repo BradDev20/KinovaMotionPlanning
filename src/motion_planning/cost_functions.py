@@ -468,3 +468,45 @@ class SafetyImportanceCostFunction(CostFunction):
             self.kinematics_solver._restore_state()
 
         return gradient * self.weight
+
+class FixedZCostFunction(CostFunction):
+    def __init__(self, kinematics_solver, target_z=0.529, weight=100.0):
+        super().__init__(weight)
+        self.kinematics = kinematics_solver
+        self.target_z = target_z
+
+    def compute_cost(self, trajectory, dt=0.1):
+        total_cost = 0.0
+        self.kinematics._backup_state()
+        try:
+            for q in trajectory:
+                ee_pos, _ = self.kinematics.forward_kinematics(q)
+                z_error = ee_pos[2] - self.target_z
+                total_cost += z_error ** 2
+        finally:
+            self.kinematics._restore_state()
+        return self.weight * total_cost
+
+    def compute_gradient(self, trajectory, dt=0.1):
+        grad = np.zeros_like(trajectory)
+        self.kinematics._backup_state()
+        try:
+            for i, q in enumerate(trajectory):
+                ee_pos, _ = self.kinematics.forward_kinematics(q)
+                z_error = ee_pos[2] - self.target_z
+
+                eps = 1e-4
+                n_joints = len(q)
+                J_z = np.zeros(n_joints)
+
+                # Finite difference approximation of z-Jacobian
+                for j in range(n_joints):
+                    q_eps = q.copy()
+                    q_eps[j] += eps
+                    ee_pos_eps, _ = self.kinematics.forward_kinematics(q_eps)
+                    J_z[j] = (ee_pos_eps[2] - ee_pos[2]) / eps
+
+                grad[i] = 2 * z_error * J_z
+        finally:
+            self.kinematics._restore_state()
+        return grad * self.weight
