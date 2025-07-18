@@ -142,7 +142,7 @@ class TrajectoryLengthCostFunction(CostFunction):
     """Cost function for minimizing total trajectory length in joint space"""
 
     def __init__(self, weight: float = 1.0, normalization_bounds: Tuple[float, float] = (0.0, 1.0)):
-        assert 1 >= weight >= 0, "Weight must be between 0 and 1"
+        # assert 1 >= weight >= 0, "Weight must be between 0 and 1"
         super().__init__(weight)
         self.normalization_bounds = normalization_bounds
 
@@ -180,7 +180,9 @@ class TrajectoryLengthCostFunction(CostFunction):
                 # Gradient contribution to point i+1 (positive direction)
                 gradient[i + 1] += unit_vector
 
-        return gradient * self.weight
+        # Apply normalization to gradient (consistent with cost normalization)
+        normalization_factor = 1.0 / (self.normalization_bounds[1] - self.normalization_bounds[0])
+        return gradient * self.weight * normalization_factor
 
 
 class ObstacleAvoidanceCostFunction(CostFunction):
@@ -190,27 +192,31 @@ class ObstacleAvoidanceCostFunction(CostFunction):
                  kinematics_solver: KinematicsSolver,
                  obstacles: List[Obstacle],
                  weight: float = 1.0,
-                 normalization_bounds: Tuple[float, float] = (0.0, 1.0)):
+                 normalization_bounds: Tuple[float, float] = (0.0, 1.0),
+                 decay_rate: float = 5.0):
         """
-        Initialize obstacle avoidance cost function
+        Initialize obstacle avoidance cost function with exponential decay
 
         Args:
             kinematics_solver: KinematicsSolver instance for forward kinematics
             obstacles: List of Obstacle instances to avoid
             weight: Cost function weight
+            decay_rate: Rate of exponential decay (higher = faster decay with distance)
         """
-        assert 1 >= weight >= 0, "Weight must be between 0 and 1"
+        # assert 1 >= weight >= 0, "Weight must be between 0 and 1"
         super().__init__(weight)
         self.kinematics_solver = kinematics_solver
         self.obstacles = obstacles if obstacles else []
         self.normalization_bounds = normalization_bounds
+        self.decay_rate = decay_rate
 
     def compute_cost(self, trajectory: np.ndarray, dt: float = 0.1) -> float:
-        """Compute obstacle avoidance cost as pure distance measure from nearest obstacle"""
+        """Compute obstacle avoidance cost based on MINIMUM distance to obstacles across entire trajectory"""
         if not self.obstacles:
             return 0.0
 
-        total_cost = 0.0
+        # Find the minimum distance to obstacles across the entire trajectory
+        min_distance_across_trajectory = float('inf')
 
         # Backup current state
         self.kinematics_solver._backup_state()
@@ -220,8 +226,8 @@ class ObstacleAvoidanceCostFunction(CostFunction):
                 # Get end-effector position for this waypoint
                 ee_position, _ = self.kinematics_solver.forward_kinematics(waypoint)
 
-                # Find minimum distance to any obstacle surface
-                min_distance_to_surface = float('inf')
+                # Find minimum distance to any obstacle surface at this waypoint
+                min_distance_at_waypoint = float('inf')
                 
                 for obstacle in self.obstacles:
                     # Compute distance to obstacle center
@@ -229,56 +235,51 @@ class ObstacleAvoidanceCostFunction(CostFunction):
                     # Distance to obstacle surface (negative if inside obstacle)
                     distance_to_surface = distance_to_center - obstacle.radius
                     
-                    min_distance_to_surface = min(min_distance_to_surface, float(distance_to_surface))
+                    min_distance_at_waypoint = min(min_distance_at_waypoint, float(distance_to_surface))
                 
-                # Pure distance-based cost: higher cost for being closer to obstacles
-                # Use polynomial cost for smoother gradients
-                if min_distance_to_surface <= 0:
-                    # Inside obstacle - quadratic penalty
-                    total_cost += 100.0 * (1.0 - min_distance_to_surface) ** 2
-                else:
-                    # Outside obstacle - inverse quadratic decay with distance
-                    # Cost decreases as 1/(1 + distance)^2
-                    total_cost += 1.0 / ((1.0 + min_distance_to_surface) ** 2)
+                # Track the minimum distance across the entire trajectory
+                min_distance_across_trajectory = min(min_distance_across_trajectory, min_distance_at_waypoint)
 
         finally:
             # Restore original state
             self.kinematics_solver._restore_state()
 
+        # Apply exponential decay to the minimum distance across the trajectory
+        if min_distance_across_trajectory <= 0:
+            # Inside obstacle - very high penalty
+            cost = 1000.0 * np.exp(-self.decay_rate * min_distance_across_trajectory)
+        else:
+            # Outside obstacle - exponential decay with distance
+            # Cost = exp(-α * min_distance) where α is decay_rate
+            cost = np.exp(-self.decay_rate * min_distance_across_trajectory)
+
         # Normalize cost to be between 0 and 1
-        normalized_cost = (total_cost - self.normalization_bounds[0]) / (self.normalization_bounds[1] - self.normalization_bounds[0])
+        normalized_cost = (cost - self.normalization_bounds[0]) / (self.normalization_bounds[1] - self.normalization_bounds[0])
         return float(self.weight * normalized_cost)
 
     def compute_gradient(self, trajectory: np.ndarray, dt: float = 0.1) -> np.ndarray:
-        """Compute analytical gradient for pure distance-based obstacle avoidance cost"""
+        """Compute analytical gradient for minimum distance-based obstacle avoidance cost"""
         if not self.obstacles:
             return np.zeros_like(trajectory)
 
         gradient = np.zeros_like(trajectory)
 
+        # First pass: find the minimum distance across the entire trajectory
+        min_distance_across_trajectory = float('inf')
+        waypoint_distances = []
+
         # Backup current state
         self.kinematics_solver._backup_state()
 
         try:
+            # First pass: compute minimum distance at each waypoint
             for i, waypoint in enumerate(trajectory):
                 # Get end-effector position
                 ee_position, _ = self.kinematics_solver.forward_kinematics(waypoint)
 
-                # Simplified Jacobian computation - finite differences on position
-                eps = 1e-4
-                jacobian = np.zeros((3, len(waypoint)))
-
-                for j in range(len(waypoint)):
-                    waypoint_plus = waypoint.copy()
-                    waypoint_plus[j] += eps
-                    ee_plus, _ = self.kinematics_solver.forward_kinematics(waypoint_plus)
-                    jacobian[:, j] = (ee_plus - ee_position) / eps
-
-                # Find the closest obstacle to determine gradient direction
-                min_distance_to_surface = float('inf')
-                closest_obstacle = None
-                closest_distance_vec = None
-                closest_distance_to_center = None
+                # Find minimum distance to any obstacle surface at this waypoint
+                min_distance_at_waypoint = float('inf')
+                closest_obstacle_info = None
                 
                 for obstacle in self.obstacles:
                     # Distance to obstacle center
@@ -287,38 +288,71 @@ class ObstacleAvoidanceCostFunction(CostFunction):
                     # Distance to obstacle surface
                     distance_to_surface = distance_to_center - obstacle.radius
                     
-                    if distance_to_surface < min_distance_to_surface:
-                        min_distance_to_surface = distance_to_surface
-                        closest_obstacle = obstacle
-                        closest_distance_vec = distance_vec
-                        closest_distance_to_center = distance_to_center
+                    if distance_to_surface < min_distance_at_waypoint:
+                        min_distance_at_waypoint = distance_to_surface
+                        closest_obstacle_info = {
+                            'obstacle': obstacle,
+                            'distance_vec': distance_vec,
+                            'distance_to_center': distance_to_center,
+                            'distance_to_surface': distance_to_surface,
+                            'ee_position': ee_position.copy()
+                        }
+                
+                waypoint_distances.append({
+                    'min_distance': min_distance_at_waypoint,
+                    'closest_obstacle_info': closest_obstacle_info
+                })
+                
+                # Track global minimum
+                min_distance_across_trajectory = min(min_distance_across_trajectory, float(min_distance_at_waypoint))
 
-                # Compute gradient based on closest obstacle
-                if (closest_obstacle is not None and 
-                    closest_distance_to_center is not None and 
-                    closest_distance_vec is not None and 
-                    closest_distance_to_center > 1e-8):
-                    # Unit vector pointing away from closest obstacle center
-                    unit_vec = closest_distance_vec / closest_distance_to_center
+            # Second pass: compute gradients only for waypoints that achieve the minimum distance
+            tolerance = 1e-6  # Small tolerance for floating-point comparison
+            
+            for i, waypoint in enumerate(trajectory):
+                waypoint_info = waypoint_distances[i]
+                
+                # Only compute gradient if this waypoint achieves (approximately) the minimum distance
+                if abs(waypoint_info['min_distance'] - min_distance_across_trajectory) <= tolerance:
+                    closest_info = waypoint_info['closest_obstacle_info']
                     
-                    # Compute cost gradient based on distance regime
-                    if min_distance_to_surface <= 0:
-                        # Inside obstacle - gradient of quadratic penalty
-                        # d/dx[100 * (1 - distance_to_surface)^2] = -200 * (1 - distance_to_surface)
-                        cost_gradient = -200.0 * (1.0 - min_distance_to_surface) * unit_vec
-                    else:
-                        # Outside obstacle - gradient of inverse quadratic decay
-                        # d/dx[1/(1 + distance_to_surface)^2] = -2/(1 + distance_to_surface)^3
-                        cost_gradient = -2.0 / ((1.0 + min_distance_to_surface) ** 3) * unit_vec
+                    if (closest_info is not None and 
+                        closest_info['distance_to_center'] > 1e-8):
+                        
+                        # Compute Jacobian for this waypoint
+                        eps = 1e-4
+                        jacobian = np.zeros((3, len(waypoint)))
+                        ee_position = closest_info['ee_position']
 
-                    # Chain rule: gradient w.r.t. joint angles
-                    gradient[i] += jacobian.T @ cost_gradient
+                        for j in range(len(waypoint)):
+                            waypoint_plus = waypoint.copy()
+                            waypoint_plus[j] += eps
+                            ee_plus, _ = self.kinematics_solver.forward_kinematics(waypoint_plus)
+                            jacobian[:, j] = (ee_plus - ee_position) / eps
+
+                        # Unit vector pointing away from closest obstacle center
+                        unit_vec = closest_info['distance_vec'] / closest_info['distance_to_center']
+                        
+                        # Compute cost gradient based on exponential decay applied to minimum distance
+                        if min_distance_across_trajectory <= 0:
+                            # Inside obstacle - gradient of exponential penalty
+                            # d/dx[1000 * exp(-α * min_distance)] = -1000α * exp(-α * min_distance)
+                            cost_gradient = -1000.0 * self.decay_rate * np.exp(-self.decay_rate * min_distance_across_trajectory) * unit_vec
+                        else:
+                            # Outside obstacle - gradient of exponential decay
+                            # d/dx[exp(-α * min_distance)] = -α * exp(-α * min_distance)
+                            cost_gradient = -self.decay_rate * np.exp(-self.decay_rate * min_distance_across_trajectory) * unit_vec
+
+                        # Chain rule: gradient w.r.t. joint angles
+                        gradient[i] += jacobian.T @ cost_gradient
 
         finally:
             # Restore original state
             self.kinematics_solver._restore_state()
 
-        return gradient * self.weight
+        # Apply normalization to gradient (consistent with cost normalization)
+        normalization_factor = 1.0 / (self.normalization_bounds[1] - self.normalization_bounds[0])
+        return gradient * self.weight * normalization_factor
 
     def add_obstacle(self, obstacle: Obstacle):
         """Add an obstacle to the list"""
@@ -510,3 +544,215 @@ class FixedZCostFunction(CostFunction):
         finally:
             self.kinematics._restore_state()
         return grad * self.weight
+
+
+class CompositeCostFunction(CostFunction):
+    """
+    Professional composite cost function that supports both linear sum and weighted maximum formulations.
+    
+    Formulations:
+    - Sum mode: cost = Σ(w_i * f_i(T))
+    - Max mode: cost = max_i(w_i * f_i(T)) + ρ * Σ(f_i(T))
+    
+    The max mode uses tie-breaking to ensure differentiability at switching points.
+    """
+    
+    def __init__(self, 
+                 cost_functions: List[CostFunction], 
+                 weights: List[float],
+                 mode: str = 'sum',
+                 rho: float = 0.01,
+                 epsilon_tie: float = 1e-10):
+        """
+        Initialize composite cost function.
+        
+        Args:
+            cost_functions: List of individual cost functions
+            weights: Corresponding weights for each cost function
+            mode: 'sum' for linear combination, 'max' for weighted maximum with tie-breaking
+            rho: Tie-breaking parameter for max mode (should be small, e.g., 0.001-0.1)
+            epsilon_tie: Threshold for detecting ties in max mode
+        """
+        super().__init__(weight=1.0)  # Composite function manages its own weighting
+        
+        if len(cost_functions) != len(weights):
+            raise ValueError("Number of cost functions must match number of weights")
+        
+        if mode not in ['sum', 'max']:
+            raise ValueError("Mode must be 'sum' or 'max'")
+            
+        if mode == 'max' and not (0.001 <= rho <= 0.1):
+            print(f"Warning: rho={rho} is outside recommended range [0.001, 0.1] for max mode")
+        
+        self.cost_functions = cost_functions
+        
+        # Normalize weights to sum to 1
+        weights_array = np.array(weights)
+        weight_sum = np.sum(weights_array)
+        if weight_sum <= 0:
+            raise ValueError("Sum of weights must be positive")
+        self.weights = weights_array / weight_sum
+        self.original_weights = weights_array.copy()  # Store original for reference
+        
+        self.mode = mode
+        self.rho = rho
+        self.epsilon_tie = epsilon_tie
+        
+        print(f"  📊 Composite cost function initialized:")
+        print(f"     Mode: {mode.upper()}")
+        print(f"     Functions: {len(cost_functions)}")
+        print(f"     Original weights: {[f'{w:.1f}' for w in self.original_weights]}")
+        print(f"     Normalized weights: {[f'{w:.3f}' for w in self.weights]} (sum={np.sum(self.weights):.3f})")
+        if mode == 'max':
+            print(f"     Tie-breaking parameter ρ: {rho}")
+    
+    def compute_cost(self, trajectory: np.ndarray, dt: float = 0.1) -> float:
+        """Compute composite cost using specified mode."""
+        if not self.cost_functions:
+            return 0.0
+        
+        # Compute all individual costs
+        individual_costs = np.array([
+            cf.compute_cost(trajectory, dt) for cf in self.cost_functions
+        ])
+        
+        if self.mode == 'sum':
+            # Linear weighted sum: cost = Σ(w_i * f_i)
+            return float(np.sum(self.weights * individual_costs))
+        
+        elif self.mode == 'max':
+            # Weighted maximum with tie-breaking: cost = max(w_i * f_i) + ρ * Σ(f_i)
+            weighted_costs = self.weights * individual_costs
+            max_term = np.max(weighted_costs)
+            sum_term = self.rho * np.sum(individual_costs)
+            return float(max_term + sum_term)
+        
+        else:
+            raise ValueError(f"Invalid mode: {self.mode}. Must be 'sum' or 'max'.")
+    
+    def compute_gradient(self, trajectory: np.ndarray, dt: float = 0.1) -> np.ndarray:
+        """Compute composite gradient using specified mode."""
+        if not self.cost_functions:
+            return np.zeros_like(trajectory)
+        
+        # Compute all individual costs and gradients
+        individual_costs = np.array([
+            cf.compute_cost(trajectory, dt) for cf in self.cost_functions
+        ])
+        individual_gradients = [
+            cf.compute_gradient(trajectory, dt) for cf in self.cost_functions
+        ]
+        
+        if self.mode == 'sum':
+            # Linear weighted sum gradient: ∇cost = Σ(w_i * ∇f_i)
+            total_gradient = np.zeros_like(trajectory)
+            for i, grad in enumerate(individual_gradients):
+                total_gradient += self.weights[i] * grad
+            return total_gradient
+        
+        elif self.mode == 'max':
+            # Weighted maximum gradient with tie-breaking
+            weighted_costs = self.weights * individual_costs
+            max_value = np.max(weighted_costs)
+            
+            # Find indices of functions that achieve the maximum (within epsilon_tie)
+            max_indices = np.where(np.abs(weighted_costs - max_value) <= self.epsilon_tie)[0]
+            
+            # Max term gradient: sum over all tied maximizers
+            max_gradient = np.zeros_like(trajectory)
+            for idx in max_indices:
+                max_gradient += self.weights[idx] * individual_gradients[idx]
+            
+            # If multiple tied maximizers, average their contributions
+            if len(max_indices) > 1:
+                max_gradient /= len(max_indices)
+            
+            # Tie-breaking sum term gradient: ρ * Σ(∇f_i)
+            sum_gradient = np.zeros_like(trajectory)
+            for grad in individual_gradients:
+                sum_gradient += grad
+            sum_gradient *= self.rho
+            
+            return max_gradient + sum_gradient
+        
+        else:
+            raise ValueError(f"Invalid mode: {self.mode}. Must be 'sum' or 'max'.")
+    
+    def get_mode_info(self) -> str:
+        """Get formatted information about the current mode and configuration."""
+        info = [
+            f"Composite Cost Function ({self.mode.upper()} mode)",
+            f"  Functions: {len(self.cost_functions)}",
+            f"  Original weights: {[f'{w:.1f}' for w in self.original_weights]}",
+            f"  Normalized weights: {[f'{w:.3f}' for w in self.weights]} (sum={np.sum(self.weights):.3f})"
+        ]
+        
+        if self.mode == 'max':
+            info.extend([
+                f"  Tie-breaking ρ: {self.rho}",
+                f"  Tie threshold: {self.epsilon_tie}"
+            ])
+        
+        return '\n'.join(info)
+    
+    def switch_mode(self, new_mode: str, rho: Optional[float] = None):
+        """
+        Switch between sum and max modes dynamically.
+        
+        Args:
+            new_mode: 'sum' or 'max'
+            rho: New tie-breaking parameter (only used if switching to max mode)
+        """
+        if new_mode not in ['sum', 'max']:
+            raise ValueError("Mode must be 'sum' or 'max'")
+        
+        old_mode = self.mode
+        self.mode = new_mode
+        
+        if new_mode == 'max' and rho is not None:
+            self.rho = rho
+        
+        print(f"  🔄 Switched cost mode: {old_mode.upper()} → {new_mode.upper()}")
+        if new_mode == 'max':
+            print(f"     Tie-breaking ρ: {self.rho}")
+
+
+class CostModeFactory:
+    """Factory class for creating composite cost functions with standard configurations."""
+    
+    @staticmethod
+    def create_pareto_comparison(cost_functions: List[CostFunction], 
+                               weights: List[float],
+                               strategy: str = 'safe') -> CompositeCostFunction:
+        """
+        Create composite cost function optimized for Pareto frontier analysis.
+        
+        Args:
+            cost_functions: List of cost functions to combine
+            weights: Weights for each cost function
+            strategy: 'safe' (uses sum mode), 'risky' (uses max mode), or 'custom'
+        
+        Returns:
+            Configured CompositeCostFunction
+        """
+        if strategy == 'safe':
+            # Safe strategy: weighted sum promotes balanced solutions
+            return CompositeCostFunction(cost_functions, weights, mode='sum')
+        
+        elif strategy == 'risky':
+            # Risky strategy: weighted max focuses on dominant objective
+            return CompositeCostFunction(cost_functions, weights, mode='max', rho=0.01)
+        
+        elif strategy == 'custom':
+            # Custom: let user configure manually
+            return CompositeCostFunction(cost_functions, weights, mode='sum')
+        
+        else:
+            raise ValueError("Strategy must be 'safe', 'risky', or 'custom'")
+    
+    @staticmethod
+    def create_research_mode(cost_functions: List[CostFunction], 
+                           weights: List[float],
+                           rho: float = 0.01) -> CompositeCostFunction:
+        """Create composite cost function for research with weighted maximum formulation."""
+        return CompositeCostFunction(cost_functions, weights, mode='max', rho=rho)

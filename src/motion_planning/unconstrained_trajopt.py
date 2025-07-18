@@ -1,7 +1,7 @@
 import numpy as np
 import mujoco
 from typing import List, Tuple, Callable, Optional, Dict, Any
-from .cost_functions import CostFunction
+from .cost_functions import CostFunction, CompositeCostFunction
 from scipy.optimize import minimize
 
 
@@ -12,7 +12,8 @@ class UnconstrainedTrajOptPlanner:
                  model: mujoco.MjModel,
                  data: mujoco.MjData,
                  n_waypoints: int = 50,  # Reduced from 150 for faster computation
-                 dt: float = 0.1):
+                 dt: float = 0.1,
+                 cost_mode: str = 'legacy'):
         """
         Initialize TrajOpt planner
 
@@ -21,19 +22,28 @@ class UnconstrainedTrajOptPlanner:
             data: MuJoCo data
             n_waypoints: Number of waypoints in trajectory
             dt: Time step between waypoints
+            cost_mode: 'legacy' (individual cost functions), 'composite' (single composite function)
         """
         self.model = model
         self.data = data
         self.n_waypoints = n_waypoints
         self.dt = dt
         self.n_dof = 7  # Kinova Gen3 has 7 DOF
+        
+        # Cost mode configuration
+        if cost_mode not in ['legacy', 'composite']:
+            raise ValueError("cost_mode must be 'legacy' or 'composite'")
+        self.cost_mode = cost_mode
 
         # Joint limits
         self.joint_limits_lower = np.array([-3.14, -2.24, -3.14, -2.57, -3.14, -2.09, -3.14])
         self.joint_limits_upper = np.array([3.14, 2.24, 3.14, 2.57, 3.14, 2.09, 3.14])
 
-        # Cost functions (can be swapped easily)
+        # Cost functions (legacy mode)
         self.cost_functions: List[CostFunction] = []
+        
+        # Composite cost function (new mode)
+        self.composite_cost_function: Optional[CompositeCostFunction] = None
 
         # Constraints
         self.collision_checker = None
@@ -43,12 +53,52 @@ class UnconstrainedTrajOptPlanner:
         self.last_cost = float('inf')
 
     def add_cost_function(self, cost_fn: CostFunction):
-        """Add a cost function to the optimization"""
+        """Add a cost function to the optimization (legacy mode only)"""
+        if self.cost_mode != 'legacy':
+            raise RuntimeError("add_cost_function() only available in legacy mode. Use set_composite_cost_function() instead.")
         self.cost_functions.append(cost_fn)
+
+    def set_composite_cost_function(self, composite_fn: CompositeCostFunction):
+        """Set the composite cost function (composite mode only)"""
+        if self.cost_mode != 'composite':
+            raise RuntimeError("set_composite_cost_function() only available in composite mode.")
+        self.composite_cost_function = composite_fn
+        print(f"  ✅ Composite cost function configured:")
+        print(f"     {composite_fn.get_mode_info()}")
+
+    def setup_composite_cost(self, 
+                           cost_functions: List[CostFunction], 
+                           weights: List[float],
+                           formulation: str = 'sum',
+                           rho: float = 0.01) -> CompositeCostFunction:
+        """
+        Convenience method to create and set composite cost function.
+        
+        Args:
+            cost_functions: List of individual cost functions
+            weights: Corresponding weights
+            formulation: 'sum' or 'max'
+            rho: Tie-breaking parameter for max mode
+            
+        Returns:
+            The created CompositeCostFunction
+        """
+        if self.cost_mode != 'composite':
+            raise RuntimeError("setup_composite_cost() only available in composite mode.")
+        
+        composite_fn = CompositeCostFunction(
+            cost_functions=cost_functions,
+            weights=weights,
+            mode=formulation,
+            rho=rho
+        )
+        self.set_composite_cost_function(composite_fn)
+        return composite_fn
 
     def clear_cost_functions(self):
         """Clear all cost functions"""
         self.cost_functions.clear()
+        self.composite_cost_function = None
 
     def set_collision_checker(self, collision_fn: Callable[[np.ndarray], bool]):
         """Set collision checking function"""
@@ -66,9 +116,20 @@ class UnconstrainedTrajOptPlanner:
         """Compute total cost for trajectory with progress tracking"""
         trajectory = self._vector_to_trajectory(trajectory_vector)
 
-        total_cost = 0.0
-        for cost_fn in self.cost_functions:
-            total_cost += cost_fn.compute_cost(trajectory, self.dt)
+        if self.cost_mode == 'legacy':
+            # Legacy mode: sum individual cost functions
+            total_cost = 0.0
+            for cost_fn in self.cost_functions:
+                total_cost += cost_fn.compute_cost(trajectory, self.dt)
+        
+        elif self.cost_mode == 'composite':
+            # Composite mode: use single composite cost function
+            if self.composite_cost_function is None:
+                raise RuntimeError("No composite cost function set. Use set_composite_cost_function().")
+            total_cost = self.composite_cost_function.compute_cost(trajectory, self.dt)
+        
+        else:
+            raise ValueError(f"Invalid cost_mode: {self.cost_mode}")
 
         # Progress feedback
         self.iteration_count += 1
@@ -82,9 +143,20 @@ class UnconstrainedTrajOptPlanner:
         """Compute total gradient for trajectory"""
         trajectory = self._vector_to_trajectory(trajectory_vector)
 
-        total_gradient = np.zeros_like(trajectory)
-        for cost_fn in self.cost_functions:
-            total_gradient += cost_fn.compute_gradient(trajectory, self.dt)
+        if self.cost_mode == 'legacy':
+            # Legacy mode: sum individual gradients
+            total_gradient = np.zeros_like(trajectory)
+            for cost_fn in self.cost_functions:
+                total_gradient += cost_fn.compute_gradient(trajectory, self.dt)
+        
+        elif self.cost_mode == 'composite':
+            # Composite mode: use single composite gradient
+            if self.composite_cost_function is None:
+                raise RuntimeError("No composite cost function set. Use set_composite_cost_function().")
+            total_gradient = self.composite_cost_function.compute_gradient(trajectory, self.dt)
+        
+        else:
+            raise ValueError(f"Invalid cost_mode: {self.cost_mode}")
 
         return self._trajectory_to_vector(total_gradient)
 
@@ -125,8 +197,12 @@ class UnconstrainedTrajOptPlanner:
             trajectory: List of joint configurations
             success: Whether planning succeeded
         """
-        if len(self.cost_functions) == 0:
+        # Validate cost functions are set up
+        if self.cost_mode == 'legacy' and len(self.cost_functions) == 0:
             print("Warning: No cost functions added to TrajOpt planner")
+            return [], False
+        elif self.cost_mode == 'composite' and self.composite_cost_function is None:
+            print("Warning: No composite cost function set")
             return [], False
 
         # Reset progress tracking
@@ -141,6 +217,8 @@ class UnconstrainedTrajOptPlanner:
         bounds = self._create_bounds(start_config, goal_config)
 
         print(f"  Optimizing {self.n_waypoints} waypoints × {self.n_dof} DOF = {len(initial_vector)} variables...")
+        print(f"  Cost mode: {self.cost_mode.upper()}")
+        
         initial_cost = self._compute_total_cost(initial_vector)
         print(f"  Initial cost: {initial_cost:.3f}")
 
