@@ -10,9 +10,9 @@ This package provides:
 from .kinematics import KinematicsSolver
 from .planners import MotionPlannerFactory
 from .utils import Obstacle
-from .TrajOpt import TrajOptPlanner
+from .unconstrained_trajopt import UnconstrainedTrajOptPlanner
 from .RRTPlanner import RRTPlanner
 from .cost_functions import SafetyImportanceCostFunction
 from .integration import MotionPlanningInterface, TrajectoryVisualizer
 
-__all__ = ['KinematicsSolver', 'RRTPlanner', 'TrajOptPlanner', 'MotionPlannerFactory', 'Obstacle', 'SafetyImportanceCostFunction', 'MotionPlanningInterface', 'TrajectoryVisualizer']
+__all__ = ['KinematicsSolver', 'RRTPlanner', 'UnconstrainedTrajOptPlanner', 'MotionPlannerFactory', 'Obstacle', 'SafetyImportanceCostFunction', 'MotionPlanningInterface', 'TrajectoryVisualizer']

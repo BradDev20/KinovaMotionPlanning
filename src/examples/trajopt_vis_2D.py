@@ -16,26 +16,33 @@ import numpy as np
 import time
 import sys
 import os
+import random
 
 # Add the src directory to the Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from motion_planning.kinematics import KinematicsSolver
-from motion_planning.unconstrained_trajopt import UnconstrainedTrajOptPlanner
+from motion_planning.unconstrained_trajopt import UnconstrainedTrajOptPlanner as TrajOptPlanner
 from motion_planning.utils import Obstacle
 from motion_planning.cost_functions import (
     TrajectoryLengthCostFunction,
     SafetyImportanceCostFunction,
     ObstacleAvoidanceCostFunction,
     VelocityCostFunction,
-    AccelerationCostFunction
+    AccelerationCostFunction,
+    FixedZCostFunction
 )
 
 # Define multiple obstacles for the demo
+# obstacles = [
+#     Obstacle(center=np.array([-0.55, -0.1, 0.529]), radius=0.08, safe_distance=0.05),
+#     # Obstacle(center=np.array([0.6, -0.3, 0.8]), radius=0.2, safe_distance=0.05),
+#     Obstacle(center=np.array([-0.55, 0.25, 0.529]), radius=0.08, safe_distance=0.05),
+# ]
 obstacles = [
-    Obstacle(center=np.array([0.55, -0.1, 0.75]), radius=0.08, safe_distance=0.05),
+    Obstacle(center=np.array([-0.5, -0.1, 0.529]), radius=0.08, safe_distance=0.05),
     # Obstacle(center=np.array([0.6, -0.3, 0.8]), radius=0.2, safe_distance=0.05),
-    Obstacle(center=np.array([0.55, -0.45, 0.65]), radius=0.08, safe_distance=0.05),
+    Obstacle(center=np.array([-0.5, 0.2, 0.529]), radius=0.08, safe_distance=0.05),
 ]
 
 
@@ -70,7 +77,7 @@ def create_scene_with_virtual_obstacles():
     # Add target position marker
     target_xml = '''
     <!-- Target position marker -->
-    <body name="target_marker" pos="0.6 -0.3 0.4">
+    <body name="target_marker" pos="-0.6 0.1 0.529">
         <geom name="target_geom" type="sphere" size="0.03" 
               rgba="0.0 0.8 0.0 0.8" material="" contype="0" conaffinity="0"/>
         <site name="target_center" pos="0 0 0" size="0.005" rgba="0 1 0 1"/>
@@ -80,7 +87,7 @@ def create_scene_with_virtual_obstacles():
     '''
     
     # Add trajectory trace dots - create enough for long trajectories
-    for i in range(200):  # More dots than we'll likely need
+    for i in range(500):  # More dots than we'll likely need
         target_xml += f'''
     <body name="trace_dot_{i}" pos="0 0 -10">
         <geom name="trace_dot_{i}_geom" type="sphere" size="0.008" 
@@ -110,16 +117,16 @@ def create_scene_with_virtual_obstacles():
     return output_path
 
 
-def plan_trajectory_with_multi_obstacle_avoidance(model, data, kinematics):
+def plan_trajectory_with_multi_obstacle_avoidance(model, data, kinematics, strategy_choice=None):
     """Plan trajectory using TrajOpt with multi-obstacle avoidance"""
     
     print("=== TrajOpt Planning with Multi-Obstacle Avoidance ===")
     
     # Define start configuration
-    start_config = np.array([0.0, 0.5, 0.0, -1.5, 0.0, 1.0, 0.0])  # Home position
+    start_config = np.array([0.0, 0.5, 0.0, -2.5, 0.0, 0.45, 1.57])  # Home position
     
     # Define TARGET as Cartesian position (matching the green sphere in visualization)
-    target_position = np.array([0.6, -0.3, 0.4])  # This matches the green sphere position in XML
+    target_position = np.array([-0.6, 0.1, 0.529])  # This matches the green sphere position in XML
     
     print(f"Target Cartesian position: [{target_position[0]:.3f}, {target_position[1]:.3f}, {target_position[2]:.3f}]")
     
@@ -137,10 +144,10 @@ def plan_trajectory_with_multi_obstacle_avoidance(model, data, kinematics):
     )
     
     if not ik_success:
-        print("IK failed - target may be unreachable")
+        print("❌ IK failed - target may be unreachable")
         return None
     
-    print("IK succeeded!")
+    print("✅ IK succeeded!")
     print(f"Goal joint configuration: {[f'{x:.3f}' for x in goal_config]}")
     
     # Verify the IK solution
@@ -164,7 +171,7 @@ def plan_trajectory_with_multi_obstacle_avoidance(model, data, kinematics):
     
     # Create TrajOpt planner
     print(f"\nStep 2: Setting up TrajOpt planner...")
-    planner = UnconstrainedTrajOptPlanner(model, data, n_waypoints=50, dt=0.1)  # Reasonable waypoints and dt
+    planner = TrajOptPlanner(model, data, n_waypoints=50, dt=0.1)  # Reasonable waypoints and dt
     
     # Add cost functions with carefully tuned weights
     print("Adding cost functions:")
@@ -175,10 +182,9 @@ def plan_trajectory_with_multi_obstacle_avoidance(model, data, kinematics):
     print("  [2] SAFE: Safety importance (goes around obstacles)")
     
     try:
-        strategy_choice = input("Enter choice (1 or 2, default=2): ").strip()
         if strategy_choice == '1':
             # RISKY Strategy: Prioritize short paths
-            print("\nRISKY Strategy Selected: Prioritizing trajectory length")
+            print("\n🟡 RISKY Strategy Selected: Prioritizing trajectory length")
             length_cost = TrajectoryLengthCostFunction(weight=10.0)  # High weight for short paths
             planner.add_cost_function(length_cost)
             print("  ✓ Trajectory length minimization (weight: 10.0 - HIGH)")
@@ -187,7 +193,7 @@ def plan_trajectory_with_multi_obstacle_avoidance(model, data, kinematics):
             safety_description = "minimal"
         else:
             # SAFE Strategy: Prioritize safety (default)
-            print("\nSAFE Strategy Selected: Prioritizing safety importance")
+            print("\n🔵 SAFE Strategy Selected: Prioritizing safety importance")
             length_cost = TrajectoryLengthCostFunction(weight=0.01)  # Low weight for path length
             planner.add_cost_function(length_cost)
             print("  ✓ Trajectory length minimization (weight: 1.0 - LOW)")
@@ -245,6 +251,14 @@ def plan_trajectory_with_multi_obstacle_avoidance(model, data, kinematics):
     planner.add_cost_function(acceleration_cost)
     print("  ✓ Acceleration smoothness (weight: 0.05)")
     
+    # 5. Fixed Z cost function
+    fixed_z_cost = FixedZCostFunction(
+        kinematics_solver=kinematics,
+        target_z=0.529,   # Change if you'd like a different z height
+        weight=10000.0      # Tune higher if you want stronger enforcement
+    )
+    planner.add_cost_function(fixed_z_cost)
+    print("  ✓ Fixed Z cost (weight: 10000.0)")
     # Plan trajectory from start_config to goal_config (found by IK)
     print(f"\nStep 3: Planning optimal trajectory...")
     start_time = time.time()
@@ -303,7 +317,7 @@ def plan_trajectory_with_multi_obstacle_avoidance(model, data, kinematics):
         return None
 
 
-def execute_trajectory_in_current_viewer(viewer_handle, model, data, kinematics, trajectory):
+def execute_trajectory_in_current_viewer(viewer_handle, model, data, kinematics, trajectory, run_idx):
     """Execute trajectory in the already open MuJoCo viewer with tracing and replay"""
     
     print("\n=== Multi-Obstacle Trajectory Execution ===")
@@ -320,19 +334,28 @@ def execute_trajectory_in_current_viewer(viewer_handle, model, data, kinematics,
                     model.body_pos[body_id] = [0, 0, -10]  # Move far below ground
             except:
                 pass  # Body doesn't exist
-    
-    def update_trajectory_trace(ee_positions):
+    def generate_new_color():
+        return [random.random(), random.random(), random.random(), 0.8]  # RGB + alpha
+
+    def update_trajectory_trace(model, ee_positions, run_idx):
         """Update trajectory trace dots to show EE path"""
-        clear_trajectory_trace()
+        dot_offset = run_idx *50
+        color = generate_new_color()
+        # clear_trajectory_trace()
         for i, pos in enumerate(ee_positions[-200:]):  # Show last 200 points
+            dot_id = dot_offset + i 
+            if dot_id >= 500:
+                break 
             try:
-                body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, f"trace_dot_{i}")
+                body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, f"trace_dot_{dot_id}")
+                geom_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, f"trace_dot_{dot_id}_geom")
                 if body_id >= 0:
                     model.body_pos[body_id] = pos
+                    model.geom_rgba[geom_id] = color
             except:
                 pass
     
-    def execute_single_trajectory():
+    def execute_single_trajectory(run_idx):
         """Execute the trajectory once with tracing"""
         print("\n🎯 TrajOpt Multi-Obstacle Trajectory Execution:")
         print("Watch how the robot reaches the GREEN TARGET while avoiding MULTIPLE COLORED OBSTACLES!")
@@ -348,7 +371,7 @@ def execute_trajectory_in_current_viewer(viewer_handle, model, data, kinematics,
         print()
         
         # Clear any existing trace
-        clear_trajectory_trace()
+        # clear_trajectory_trace()
         
         # Start at initial position
         data.qpos[:7] = trajectory[0]
@@ -374,7 +397,7 @@ def execute_trajectory_in_current_viewer(viewer_handle, model, data, kinematics,
             
             # Update trajectory trace every few waypoints for smooth visual
             if i % max(1, len(trajectory)//50) == 0 or i == len(trajectory)-1:
-                update_trajectory_trace(ee_positions)
+                update_trajectory_trace(model, ee_positions, run_idx)
             
             # Step simulation for smooth visualization
             for _ in range(8):  # 8 steps per waypoint
@@ -404,7 +427,7 @@ def execute_trajectory_in_current_viewer(viewer_handle, model, data, kinematics,
                       f"ClosestObs={closest_dist:.3f}m {safety_status}")
         
         # Final update of trajectory trace
-        update_trajectory_trace(ee_positions)
+        update_trajectory_trace(model, ee_positions, run_idx)
         
         # Final verification
         final_ee_pos, _ = kinematics.forward_kinematics(trajectory[-1])
@@ -426,9 +449,8 @@ def execute_trajectory_in_current_viewer(viewer_handle, model, data, kinematics,
             print("  ✅ SUCCESS: Target reached within tolerance!")
         else:
             print("  ⚠ Target positioning could be improved")
-    
     # Execute trajectory for the first time
-    execute_single_trajectory()
+    execute_single_trajectory(run_idx)
     
     # Interactive replay loop
     print("\n🎉 Multi-obstacle trajectory execution complete!")
@@ -504,7 +526,7 @@ def execute_trajectory_in_current_viewer(viewer_handle, model, data, kinematics,
 
 
 def main():
-    """Main demo function"""
+    """Main demo function with repeatable method choice and accumulated traces"""
     print("🤖 TrajOpt Multi-Obstacle Avoidance Demo")
     print("=" * 60)
     print(f"Demonstrating TrajOpt with {len(obstacles)} obstacles:")
@@ -512,66 +534,63 @@ def main():
         print(f"  {i+1}. Center: ({obs.center[0]:.2f}, {obs.center[1]:.2f}, {obs.center[2]:.2f}), "
               f"Radius: {obs.radius:.3f}m, Safety: {obs.safe_distance:.3f}m")
     print("=" * 60)
-    
+
     try:
-        # Create scene with visual obstacles
+        # Create scene
         print("Setting up multi-obstacle demo scene...")
         model_path = create_scene_with_virtual_obstacles()
         print(f"✓ Created scene: {model_path}")
-        
-        # Load model and initialize components
+
+        # Load model
         print("Loading robot model...")
         model = mujoco.MjModel.from_xml_path(model_path)
         data = mujoco.MjData(model)
         kinematics = KinematicsSolver(model_path)
         print("✓ Model loaded successfully")
-        
-        # Launch viewer early to show setup
-        print("\n🎯 Launching viewer - you can see the setup before planning begins...")
-        print("Red spheres: Obstacles to avoid")
-        print("Green sphere: Target position")
-        print("Robot will start planning trajectory in a moment...")
-        
+
+        # Launch viewer
+        print("\n🎯 Launching viewer...")
         with mujoco.viewer.launch_passive(model, data) as viewer_handle:
-            # Set robot to home position for visualization
-            home_config = np.array([0.0, 0.5, 0.0, -1.5, 0.0, 1.0, 0.0])
+            home_config = np.array([0.0, 0.5, 0.0, -2.5, 0.0, 0.45, 1.57])
             data.qpos[:7] = home_config
             data.ctrl[:7] = home_config
             mujoco.mj_forward(model, data)
             viewer_handle.sync()
-            
-            print("\nViewer launched! Take a moment to inspect the scene...")
-            time.sleep(3)
-            
-            # Plan trajectory with multi-obstacle avoidance
-            print("\n" + "="*50)
-            print("STARTING TRAJECTORY PLANNING...")
-            print("="*50)
-            trajectory = plan_trajectory_with_multi_obstacle_avoidance(model, data, kinematics)
-            
-            if trajectory is not None:
-                print("\n" + "="*50)
-                print("PLANNING COMPLETE - EXECUTING TRAJECTORY...")
-                print("="*50)
-                time.sleep(2)
-                
-                # Execute and visualize trajectory in the same viewer
-                execute_trajectory_in_current_viewer(viewer_handle, model, data, kinematics, trajectory)
-            else:
-                print("Cannot proceed with visualization due to planning failure.")
-                print("Press Ctrl+C to exit...")
-                try:
-                    while True:
-                        mujoco.mj_step(model, data)
-                        viewer_handle.sync()
-                        time.sleep(0.1)
-                except KeyboardInterrupt:
-                    print("\nExiting demo...")
-            
-    except FileNotFoundError as e:
-        print(f"❌ Error: Could not find required files")
-        print(f"   {e}")
-        print("   Make sure you're running from the project root directory")
+
+            print("\nViewer launched! You can inspect the scene before planning...")
+
+            trajectory_run_counter = [0]
+
+            while True:
+                # Method choice before each plan
+                print("\nChoose planning strategy:")
+                print("  [1] RISKY: Trajectory length minimization (threads between obstacles)")
+                print("  [2] SAFE: Safety importance (goes around obstacles)")
+                strategy_choice = input("Enter choice (1 or 2, default=2): ").strip()
+
+                # Plan trajectory with chosen strategy
+                trajectory = plan_trajectory_with_multi_obstacle_avoidance(
+                    model, data, kinematics, strategy_choice
+                )
+
+                if trajectory is not None:
+                    # Execute and visualize, **do not clear blue dots from previous runs**
+                    execute_trajectory_in_current_viewer(viewer_handle, model, data, kinematics, trajectory, trajectory_run_counter[0])
+                    trajectory_run_counter[0] += 1
+                else:
+                    print("Cannot proceed with visualization due to planning failure.")
+
+                # Ask to continue or exit
+                while True:
+                    choice = input("\nDo you want to plan another trajectory? (y/n): ").strip().lower()
+                    if choice in ['y', 'yes']:
+                        break  # Run another iteration
+                    elif choice in ['n', 'no']:
+                        print("\n👋 Exiting the demo...")
+                        return  # Exit
+                    else:
+                        print("Please enter 'y' or 'n'.")
+
     except Exception as e:
         print(f"❌ Unexpected error: {e}")
         import traceback

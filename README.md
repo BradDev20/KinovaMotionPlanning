@@ -59,10 +59,15 @@ You will see a rendered green sphere that the robot is trying to move to, and th
 
 ## Cost-based Motion Planning
 In order to instantiate multiple objectives, we need to represent the moiton planning problem as the minimization of a cost function.
-TODO: Add some example/test scripts here
 
 ## Multi-Objective Motion Planning
 A simple example of weighted planning can be ran with
 ```
 mjpython src/examples/trajopt_visualization_demo.py
+```
+
+## Constraint-based MP
+To test constraint-based optimization that encodes velocity, accel., and goals as constraints, rather than cost features.
+```
+mjpython src/examples/constrained_optim.py
 ```

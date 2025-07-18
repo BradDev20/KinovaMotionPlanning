@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from .kinematics import KinematicsSolver
 from .utils import Obstacle
 from .RRTPlanner import RRTPlanner
-from .TrajOpt import TrajOptPlanner
+from .unconstrained_trajopt import UnconstrainedTrajOptPlanner
 
 
 class MotionPlannerFactory:
@@ -24,11 +24,11 @@ class MotionPlannerFactory:
         return RRTPlanner(model, data, **kwargs)
     
     @staticmethod
-    def create_trajopt_planner(model: mujoco.MjModel,
+    def create_unconstrained_trajopt_planner(model: mujoco.MjModel,
                               data: mujoco.MjData,
-                              **kwargs) -> TrajOptPlanner:
+                              **kwargs) -> UnconstrainedTrajOptPlanner:
         """Create a TrajOpt planner"""
-        return TrajOptPlanner(model, data, **kwargs)
+        return UnconstrainedTrajOptPlanner(model, data, **kwargs)
     
     @staticmethod
     def create_collision_checker(model: mujoco.MjModel, 
