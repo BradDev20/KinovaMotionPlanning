@@ -1,5 +1,5 @@
 # Motion Planning for Kinova Gen3 in Mujuco
-Authors: Connor Mattson
+Authors: Connor Mattson, Zohre Karimi, Atharv Belsare
 
 ## Installation
 
