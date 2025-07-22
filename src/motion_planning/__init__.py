@@ -12,7 +12,15 @@ from .planners import MotionPlannerFactory
 from .utils import Obstacle
 from .unconstrained_trajopt import UnconstrainedTrajOptPlanner
 from .RRTPlanner import RRTPlanner
-from .cost_functions import SafetyImportanceCostFunction
 from .integration import MotionPlanningInterface, TrajectoryVisualizer
 
-__all__ = ['KinematicsSolver', 'RRTPlanner', 'UnconstrainedTrajOptPlanner', 'MotionPlannerFactory', 'Obstacle', 'SafetyImportanceCostFunction', 'MotionPlanningInterface', 'TrajectoryVisualizer']
+# Import the new abstraction modules
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
+from scene_builder import MujocoSceneBuilder, create_standard_scene, create_pareto_scene
+from trajectory_visualizer import TrajectoryVisualizationManager, MultiTrajectoryVisualizer, create_trajectory_visualizer
+from trajectory_optimization_demo import TrajectoryOptimizationDemo, MultiTrajectoryDemo
+
+__all__ = ['KinematicsSolver', 'RRTPlanner', 'UnconstrainedTrajOptPlanner', 'MotionPlannerFactory', 'Obstacle', 'MotionPlanningInterface', 'TrajectoryVisualizer', 'MujocoSceneBuilder', 'create_standard_scene', 'create_pareto_scene', 'TrajectoryVisualizationManager', 'MultiTrajectoryVisualizer', 'create_trajectory_visualizer', 'TrajectoryOptimizationDemo', 'MultiTrajectoryDemo']

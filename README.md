@@ -1,11 +1,25 @@
 # Motion Planning for Kinova Gen3 in Mujuco
 Authors: Connor Mattson
 
+## TL;DR
+Just run this:
+```
+pip install -r requirements.txt
+python -m src.examples.pareto_search --cost-mode sum  # Weighted Sum
+python -m src.examples.pareto_search --cost-mode max  # Weighted Maximum
+```
+
+## Requirements
+Linux or MacOS. The code has not been tested for Windows.
+
+**MacOS:**
+If you are running this code on Mac, you will likely need to run each of the lines of code in this file with the special alias "mjpython" instead of "python"
+
 ## Installation
 
 First, install mujuco if you haven't yet.
 ```
-pip install mujoco
+pip install -r requirements.txt
 ```
 
 ### Test Loading Robot Model + Gripper
@@ -13,7 +27,7 @@ pip install mujoco
 Check that the robot model is loading correctly by running the following command.
 
 ```
-python -m mujoco.viewer --mjcf robot_models/kinova_gen3/scene.xml
+python -m src.examples.gen3
 ```
 
 You should see a mujoco model that looks like this:
@@ -26,25 +40,25 @@ If you get an error while running this, it is likely that your mujoco is not cor
 To set the robot to a "home" position and test forward simulation with velocity control, run the following command
 
 ```
-mjpython -m src.examples.init_home
+python -m src.examples.init_home
 ```
 
 you should see the robot controlling the joints to hold perfectly still (gravity compensation).
 
 ### Test Velocity Control
-As a robotics researcher (Connor), I'd really like to see my robot move please. Let's make sure we can make it move with the following test.
+As a robotics researcher, we'd really like to see the robot move. Let's make sure we can make it move with the following test.
 
 ```
-mjpython -m src.examples.test_vel_ctrl
+python -m src.examples.test_vel_ctrl
 ```
 
-## Sample-based Motion Planning - RRT
+<!-- ## Sample-based Motion Planning - RRT
 
 [//]: # (Test naive RRT to go to a couple of joint positions)
 
 [//]: # (```)
 
-[//]: # (mjpython -m src.examples.working_motion_demo)
+[//]: # (python -m src.examples.working_motion_demo)
 
 [//]: # (```)
 
@@ -52,22 +66,38 @@ mjpython -m src.examples.test_vel_ctrl
 
 Test RRT to go to a rendered goal position in EE space
 ```
-mjpython -m src.examples.target_reaching_demo
+python -m src.examples.rrt_demo
 ```
 You will see a rendered green sphere that the robot is trying to move to, and the robot will plan a path to the sphere using RRT. See rendering below.
-![image](docs/media/reached_goal_pos.png)
+![image](docs/media/reached_goal_pos.png) -->
 
 ## Cost-based Motion Planning
 In order to instantiate multiple objectives, we need to represent the moiton planning problem as the minimization of a cost function.
 
-## Multi-Objective Motion Planning
+### Unconstrained Motion Planning
 A simple example of weighted planning can be ran with
 ```
-mjpython src/examples/trajopt_visualization_demo.py
+python -m src.examples.unconstrained_optim
 ```
 
-## Constraint-based MP
+### Constraint-based MP
 To test constraint-based optimization that encodes velocity, accel., and goals as constraints, rather than cost features.
 ```
-mjpython src/examples/constrained_optim.py
+python -m src.examples.constrained_optim
+```
+
+### Pareto Line Search
+You can sweep over the different combinations of weights to trade off between safety and path length with the following command
+```
+python -m src.examples.pareto_search
+```
+
+To use a weighted maximization (rather than a weighted sum), modify the command line arguments
+```
+python -m src.examples.pareto_search --cost-mode max
+```
+
+For help with this CLI,
+```
+python -m src.examples.pareto_search --help
 ```
