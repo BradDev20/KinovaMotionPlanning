@@ -10,7 +10,8 @@ python -m src.examples.pareto_search --cost-mode max  # Weighted Maximum
 ```
 
 ## Requirements
-Linux or MacOS. The code has not been tested for Windows.
+Python 3.10
+OS: Linux or MacOS. The code has not been tested for Windows.
 
 **MacOS:**
 If you are running this code on Mac, you will likely need to run each of the lines of code in this file with the special alias "mjpython" instead of "python"
