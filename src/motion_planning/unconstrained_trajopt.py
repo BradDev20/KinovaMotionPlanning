@@ -216,11 +216,11 @@ class UnconstrainedTrajOptPlanner:
         # Create bounds
         bounds = self._create_bounds(start_config, goal_config)
 
-        print(f"  Optimizing {self.n_waypoints} waypoints × {self.n_dof} DOF = {len(initial_vector)} variables...")
-        print(f"  Cost mode: {self.cost_mode.upper()}")
+        # print(f"  Optimizing {self.n_waypoints} waypoints × {self.n_dof} DOF = {len(initial_vector)} variables...")
+        # print(f"  Cost mode: {self.cost_mode.upper()}")
         
         initial_cost = self._compute_total_cost(initial_vector)
-        print(f"  Initial cost: {initial_cost:.3f}")
+        # print(f"  Initial cost: {initial_cost:.3f}")
 
         # Optimize trajectory with robust settings
         try:
