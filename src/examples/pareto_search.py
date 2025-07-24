@@ -24,7 +24,7 @@ except ImportError:
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from motion_planning.constrained_trajopt import ConstrainedTrajOptPlanner
-from motion_planning.utils import Obstacle
+from motion_planning.utils import Obstacle, PillarObstacle
 from motion_planning.cost_functions import (
     TrajectoryLengthCostFunction,
     ObstacleAvoidanceCostFunction,
