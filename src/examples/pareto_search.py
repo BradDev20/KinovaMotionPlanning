@@ -58,8 +58,10 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
     def define_obstacles(self) -> List[Obstacle]:
         """Define obstacles for the Pareto search demo"""
         return [
-            Obstacle(center=np.array([-0.55, 0.05, 0.629]), radius=0.05, safe_distance=0.05),
-            Obstacle(center=np.array([-0.55, 0.05, 0.429]), radius=0.05, safe_distance=0.05),
+            # Obstacle(center=np.array([-0.55, 0.05, 0.629]), radius=0.05, safe_distance=0.05),
+            # Obstacle(center=np.array([-0.55, 0.05, 0.429]), radius=0.05, safe_distance=0.05),
+            PillarObstacle(center=np.array([-0.55, 0.05, 0.629]), radius=0.05, height=1.0, safe_distance=0.05),
+            PillarObstacle(center=np.array([-0.55, 0.05, 0.429]), radius=0.05, height=1.0, safe_distance=0.05)
         ]
     
     def define_target_position(self) -> np.ndarray:
