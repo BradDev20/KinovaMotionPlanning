@@ -9,10 +9,11 @@ This package provides:
 
 from .kinematics import KinematicsSolver
 from .planners import MotionPlannerFactory
-from .utils import Obstacle
+from .utils import Obstacle, PillarObstacle
 from .unconstrained_trajopt import UnconstrainedTrajOptPlanner
 from .RRTPlanner import RRTPlanner
 from .integration import MotionPlanningInterface, TrajectoryVisualizer
+import mujoco.viewer
 
 # Import the new abstraction modules
 import sys
@@ -23,4 +24,4 @@ from scene_builder import MujocoSceneBuilder, create_standard_scene, create_pare
 from trajectory_visualizer import TrajectoryVisualizationManager, MultiTrajectoryVisualizer, create_trajectory_visualizer
 from trajectory_optimization_demo import TrajectoryOptimizationDemo, MultiTrajectoryDemo
 
-__all__ = ['KinematicsSolver', 'RRTPlanner', 'UnconstrainedTrajOptPlanner', 'MotionPlannerFactory', 'Obstacle', 'MotionPlanningInterface', 'TrajectoryVisualizer', 'MujocoSceneBuilder', 'create_standard_scene', 'create_pareto_scene', 'TrajectoryVisualizationManager', 'MultiTrajectoryVisualizer', 'create_trajectory_visualizer', 'TrajectoryOptimizationDemo', 'MultiTrajectoryDemo']
+__all__ = ['KinematicsSolver', 'RRTPlanner', 'UnconstrainedTrajOptPlanner', 'MotionPlannerFactory', 'Obstacle', 'PillarObstacle' ,'MotionPlanningInterface', 'TrajectoryVisualizer', 'MujocoSceneBuilder', 'create_standard_scene', 'create_pareto_scene', 'TrajectoryVisualizationManager', 'MultiTrajectoryVisualizer', 'create_trajectory_visualizer', 'TrajectoryOptimizationDemo', 'MultiTrajectoryDemo']
