@@ -26,12 +26,11 @@
               rgba="1.0 0.2 0.2 0.6" material="" contype="0" conaffinity="0"/>
         <site name="obstacle_1_center" pos="0 0 0" size="0.005" rgba="1 0 0 1"/>
     </body>
-    
     <!-- Virtual obstacle 2 visualization -->
-    <body name="obstacle_2" pos="-0.550 0.050 0.429">
-        <geom name="obstacle_2_geom" type="sphere" size="0.05" 
+      <body name="obstacle_1_cylinder" pos="-0.550 0.050 0.629">
+        <geom name="obstacle_1_geom" type="sphere" size="0.05 0.25"
               rgba="1.0 0.2 0.2 0.6" material="" contype="0" conaffinity="0"/>
-        <site name="obstacle_2_center" pos="0 0 0" size="0.005" rgba="1 0 0 1"/>
+        <site name="obstacle_1_center" pos="0 0 0" size="0.005" rgba="1 0 0 1"/>
     </body>
     
     <!-- Target position marker -->
