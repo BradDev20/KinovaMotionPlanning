@@ -78,8 +78,9 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
     
     def get_scene_filename(self) -> str:
         """Get scene filename for Pareto search"""
-        return "pareto_search_scene.xml"
-    
+        # return "pareto_search_scene.xml"
+        return "pareto_search_pillar_scene.xml"
+
     def create_planner(self, model, data):
         """Create constrained trajectory optimization planner"""
         return ConstrainedTrajOptPlanner(
@@ -240,4 +241,4 @@ if __name__ == "__main__":
     
     # Create and run demo
     demo = ParetoSearchDemo(config)
-    demo.run_demo() 
+    demo.run_demo()
