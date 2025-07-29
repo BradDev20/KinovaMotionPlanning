@@ -1,20 +1,32 @@
+import os
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyArrowPatch
 
+# Define folder name
+folder_name = "pareto_data_and_results"
+
+# Create folder if it doesn't exist
+os.makedirs(folder_name, exist_ok=True)
+
+# File paths
+data_path = os.path.join(folder_name, "tradeoff_data_100_w_sum.csv")
+plot_path = os.path.join(folder_name, "Pareto_front_100_w_sum.png")
+
 # Load data
-df = pd.read_csv("tradeoff_data_100_w_sum.csv")
+df = pd.read_csv(data_path)
 lengths = df['length'].values
 closenesses = df['closeness'].values
 alphas = df['alpha'].values
 
 # Style
 colors = plt.cm.plasma(alphas)
-marker_size = 60
+marker_size = 25
 smaller_marker_size = marker_size * 0.6
 label_fontsize = 10
 axis_color = '0.4'
 axis_linewidth = 2.0
+font = 'serif'
 
 # Limits
 x_min, x_max = lengths.min() - 0.05, lengths.max() + 0.05
@@ -32,6 +44,15 @@ for i in range(len(alphas)):
                edgecolor='k',
                linewidth=0.6,
                zorder=3)
+
+# Add fixed-position label inside plot frame (top-right corner)
+ax.text(0.95, 1.1, "Trade-offs between objectives for W_sum",
+        transform=ax.transAxes,
+        ha='right', va='top',
+        fontsize=7,
+        weight='normal',
+        family=font,
+        color='black')
 
 # Set limits
 ax.set_xlim(x_min, x_max)
@@ -52,22 +73,19 @@ ax.set_xticks([])
 ax.set_yticks([])
 
 # Axis labels
-ax.set_xlabel("Length", labelpad=8, fontsize=label_fontsize, weight='bold')
-ax.set_ylabel("Closeness", labelpad=8, fontsize=label_fontsize, weight='bold')
+ax.set_xlabel("Length", labelpad=7, fontsize=label_fontsize, family=font, weight='normal')
+ax.set_ylabel("Closeness", labelpad=7, fontsize=label_fontsize, family=font, weight='normal')
 
 # Add arrowheads to ends of real axes
 arrowstyle = dict(arrowstyle='-|>', color=axis_color, linewidth=axis_linewidth)
 arrow_size = 10
 
-# Arrow at end of x-axis
 ax.add_patch(FancyArrowPatch((x_max, 0), (x_max + 0.015, 0),
                              **arrowstyle, mutation_scale=arrow_size))
-
-# Arrow at end of y-axis
 ax.add_patch(FancyArrowPatch((0, y_max), (0, y_max + 0.015),
                              **arrowstyle, mutation_scale=arrow_size))
 
 # Save and show
 plt.subplots_adjust(left=0.2, bottom=0.2)
-plt.savefig("Pareto_front_100_w_sum.png", dpi=300)
+plt.savefig(plot_path, dpi=300)
 plt.show()
