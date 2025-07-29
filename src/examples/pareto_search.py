@@ -12,6 +12,7 @@ import numpy as np
 import argparse
 from typing import List
 from dataclasses import dataclass
+import csv
 
 # Try to import matplotlib for colormap, fallback if not available
 try:
@@ -165,6 +166,16 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
             
             if success:
                 self.add_trajectory(trajectory, color)
+
+                trajectory_np = np.array(trajectory)  # shape: (N_waypoints, DOF)
+
+                f_length = length_cost.compute_cost(trajectory_np)
+                f_obstacle = safety_cost.compute_cost(trajectory_np)
+                print(f"Length cost for α={alpha:.1f}: {f_length:.4f}")
+                print(f"Closeness cost for α={alpha:.1f}: {f_obstacle:.4f}")
+
+                self.results.append((f_length, f_obstacle, alpha))
+    
                 print(f"α={alpha:.1f}: Success")
                 return trajectory
             else:
@@ -190,12 +201,25 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
                 successful_count += 1
         
         print(f"Search complete: {successful_count}/{len(self.alpha_values)} successful trajectories")
+
+    def save_results_to_csv(self, filename="tradeoff_data_100_w_sum.csv"):
+        if not self.results:
+            print("No results to save.")
+            return
+        with open(filename, mode='w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(["length", "closeness", "alpha"])
+            writer.writerows(self.results)
+        print(f"Results saved to {filename}")
     
     def execute_planning_loop(self, model, data, kinematics, viewer_handle):
         """Execute Pareto search and visualize results"""
         # Run the search
         self.run_pareto_search(model, data, kinematics)
         
+        # Plot trade-off between length and obstacle cost
+        self.save_results_to_csv()
+
         # Visualize all trajectories
         if self.trajectories:
             self.execute_trajectory(viewer_handle, model, data, kinematics, None)
