@@ -13,7 +13,7 @@ import argparse
 from typing import List
 from dataclasses import dataclass
 import csv
-import random
+
 # Try to import matplotlib for colormap, fallback if not available
 try:
     import matplotlib.pyplot as plt
@@ -59,28 +59,19 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
     def define_obstacles(self) -> List[Obstacle]:
         """Define obstacles for the Pareto search demo"""
         return [
-            Obstacle(center=np.array([0.45, 0.08, 0.2]), radius=0.04, safe_distance=0.04),
-            Obstacle(center=np.array([0.45, -0.2, 0.2]), radius=0.04, safe_distance=0.04),
-            # Obstacle(center=np.array([-0.65, 0.05, 0.529]), radius=0.04, safe_distance=0.04),
-            # Obstacle(center=np.array([-0.65, -0.3, 0.529]), radius=0.04, safe_distance=0.04),
             # Obstacle(center=np.array([-0.55, 0.05, 0.629]), radius=0.05, safe_distance=0.05),
             # Obstacle(center=np.array([-0.55, 0.05, 0.429]), radius=0.05, safe_distance=0.05),
-            # PillarObstacle(center=np.array([-0.55, 0.05, 0.629]), radius=0.05, height=1.0, safe_distance=0.05),
-            # PillarObstacle(center=np.array([-0.55, 0.05, 0.429]), radius=0.05, height=1.0, safe_distance=0.05)
-            # PillarObstacle(center=np.array([-0.6, -0.15, 0.629]), radius=0.04, height=1.0, safe_distance=0.05),
-            # PillarObstacle(center=np.array([-0.5, -0.01, 0.629]), radius=0.04, height=1.0, safe_distance=0.05)
+            PillarObstacle(center=np.array([-0.55, 0.05, 0.629]), radius=0.05, height=1.0, safe_distance=0.05),
+            PillarObstacle(center=np.array([-0.55, 0.05, 0.429]), radius=0.05, height=1.0, safe_distance=0.05)
         ]
     
     def define_target_position(self) -> np.ndarray:
         """Define target position for the Pareto search demo"""
-        # return np.array([-0.7, -0.04, 0.529])
-        return np.array([0.65, 0.03, 0.2])
+        return np.array([-0.7, 0.1, 0.529])
     
     def define_start_config(self) -> np.ndarray:
         """Define start configuration for the Pareto search demo"""
-        # return np.array([0.0, 0.5, 0.0, -2.5, 0.0, 0.45, 1.57])
-        # return np.array([0.0, 0.5, 0.0, -2.5, 0.0, -1.0, 1.57])
-        return np.array([0.0, -0.5, 0.0, 2.5, 0.0, 1.0, -1.57])
+        return np.array([0.0, 0.5, 0.0, -2.5, 0.0, 0.45, 1.57])
     
     def get_max_trajectories(self) -> int:
         """Get maximum number of trajectories for Pareto search"""
@@ -88,8 +79,8 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
     
     def get_scene_filename(self) -> str:
         """Get scene filename for Pareto search"""
-        return "pareto_search_scene.xml"
-        # return "pareto_search_pillar_scene.xml"
+        # return "pareto_search_scene.xml"
+        return "pareto_search_pillar_scene.xml"
 
     def create_planner(self, model, data):
         """Create constrained trajectory optimization planner"""
@@ -155,20 +146,13 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
                 kinematics_solver=kinematics,
                 obstacles=self.obstacles,
                 weight=4.0,
-                normalization_bounds=(0.0, 0.5),
-                decay_rate=5.0,
-                aggregate="sum"
-            )
-
-            z_constraint = FixedZCostFunction(
-                kinematics_solver=kinematics,
-                target_z=self.define_target_position()[2],  # or hardcode like 0.529
-                weight=100.0  # Large enough to enforce it as a constraint
+                normalization_bounds=(0.0, 0.8),
+                decay_rate=5.0
             )
 
             # Set up composite cost function
-            cost_functions = [length_cost, safety_cost, z_constraint]
-            weights = [length_weight, obstacle_weight, 0.0]
+            cost_functions = [length_cost, safety_cost]
+            weights = [length_weight, obstacle_weight]
             
             composite_cost = planner.setup_composite_cost(
                 cost_functions=cost_functions,
@@ -218,7 +202,7 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
         
         print(f"Search complete: {successful_count}/{len(self.alpha_values)} successful trajectories")
 
-    def save_results_to_csv(self, filename="tradeoff_data_100_sphere_sum_2.csv"):
+    def save_results_to_csv(self, filename="tradeoff_data_100_w_sum.csv"):
         if not self.results:
             print("No results to save.")
             return
@@ -257,9 +241,6 @@ def parse_arguments():
                        help='End value for alpha parameter (default: 1.0)')
     parser.add_argument('--alpha-step', type=float, default=0.1,
                        help='Step size for alpha parameter (default: 0.1)')
-    # NEW: seed argument
-    parser.add_argument('--seed', type=int, default=None,
-                        help='Random seed for reproducibility (default: None)')
     
     return parser.parse_args()
 
@@ -267,12 +248,6 @@ def parse_arguments():
 if __name__ == "__main__":
     args = parse_arguments()
     
-    # --- NEW: set seeds ---
-    if args.seed is not None:
-        print(f"Setting random seed to {args.seed}")
-        np.random.seed(args.seed)
-        random.seed(args.seed)
-
     print("Linear Weight Search for Trajectory Optimization")
     print(f"Cost Mode: {args.cost_mode.upper()}")
     if args.cost_mode == 'max':

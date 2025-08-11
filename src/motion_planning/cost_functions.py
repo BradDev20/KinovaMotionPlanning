@@ -184,197 +184,165 @@ class TrajectoryLengthCostFunction(CostFunction):
         normalization_factor = 1.0 / (self.normalization_bounds[1] - self.normalization_bounds[0])
         return gradient * self.weight * normalization_factor
 
-
 class ObstacleAvoidanceCostFunction(CostFunction):
-    """Cost function for avoiding multiple spherical obstacles in Cartesian space"""
+    """Cost for avoiding spherical obstacles in Cartesian space, with configurable aggregation."""
 
     def __init__(self,
                  kinematics_solver: KinematicsSolver,
                  obstacles: List[Obstacle],
                  weight: float = 1.0,
                  normalization_bounds: Tuple[float, float] = (0.0, 1.0),
-                 decay_rate: float = 5.0):
+                 decay_rate: float = 5.0,
+                 aggregate: str = "min"):  # "min" | "sum" | "avg"
         """
-        Initialize obstacle avoidance cost function with exponential decay
-
         Args:
-            kinematics_solver: KinematicsSolver instance for forward kinematics
-            obstacles: List of Obstacle instances to avoid
-            weight: Cost function weight
-            decay_rate: Rate of exponential decay (higher = faster decay with distance)
+            kinematics_solver: FK provider
+            obstacles: list of obstacles
+            weight: scalar applied after normalization
+            normalization_bounds: (low, high) for post-aggregation normalization
+            decay_rate: alpha in exp(-alpha * distance_to_surface)
+            aggregate: how to combine waypoint penalties: "min", "sum", or "avg"
         """
-        # assert 1 >= weight >= 0, "Weight must be between 0 and 1"
         super().__init__(weight)
+        assert aggregate in ("min", "sum", "avg"), "aggregate must be 'min' | 'sum' | 'avg'"
         self.kinematics_solver = kinematics_solver
         self.obstacles = obstacles if obstacles else []
         self.normalization_bounds = normalization_bounds
         self.decay_rate = decay_rate
+        self.aggregate = aggregate
 
+    # ---------- internals ----------
+    def _waypoint_cost_from_surface_dist(self, d_surface: float) -> float:
+        """Penalty for a single waypoint given distance to obstacle surface."""
+        if d_surface <= 0.0:
+            # inside obstacle: very large but smooth penalty
+            return 1000.0 * np.exp(-self.decay_rate * d_surface)
+        else:
+            # outside: decays with clearance (larger clearance -> smaller cost)
+            return float(np.exp(-self.decay_rate * d_surface))
+
+    def _closest_surface_distance(self, ee_pos: np.ndarray) -> float:
+        """Return min distance-to-surface over all obstacles for a given EE position."""
+        # distance to surface = ||ee - center|| - radius
+        return min(float(np.linalg.norm(ee_pos - obs.center) - obs.radius) for obs in self.obstacles)
+
+    # ---------- cost ----------
     def compute_cost(self, trajectory: np.ndarray, dt: float = 0.1) -> float:
-        """Compute obstacle avoidance cost based on MINIMUM distance to obstacles across entire trajectory"""
-        if not self.obstacles:
+        if not self.obstacles or trajectory.size == 0:
             return 0.0
 
-        # Find the minimum distance to obstacles across the entire trajectory
-        min_distance_across_trajectory = float('inf')
-
-        # Backup current state
         self.kinematics_solver._backup_state()
-
         try:
-            for waypoint in trajectory:
-                # Get end-effector position for this waypoint
-                ee_position, _ = self.kinematics_solver.forward_kinematics(waypoint)
-
-                # Find minimum distance to any obstacle surface at this waypoint
-                min_distance_at_waypoint = float('inf')
-                
-                for obstacle in self.obstacles:
-                    # Compute distance to obstacle center
-                    distance_to_center = np.linalg.norm(ee_position - obstacle.center)
-                    # Distance to obstacle surface (negative if inside obstacle)
-                    distance_to_surface = distance_to_center - obstacle.radius
-                    
-                    min_distance_at_waypoint = min(min_distance_at_waypoint, float(distance_to_surface))
-                
-                # Track the minimum distance across the entire trajectory
-                min_distance_across_trajectory = min(min_distance_across_trajectory, min_distance_at_waypoint)
-
+            wp_costs = []
+            for q in trajectory:
+                ee, _ = self.kinematics_solver.forward_kinematics(q)
+                d_surface = self._closest_surface_distance(ee)
+                wp_costs.append(self._waypoint_cost_from_surface_dist(d_surface))
         finally:
-            # Restore original state
             self.kinematics_solver._restore_state()
 
-        # Apply exponential decay to the minimum distance across the trajectory
-        if min_distance_across_trajectory <= 0:
-            # Inside obstacle - very high penalty
-            cost = 1000.0 * np.exp(-self.decay_rate * min_distance_across_trajectory)
-        else:
-            # Outside obstacle - exponential decay with distance
-            # Cost = exp(-α * min_distance) where α is decay_rate
-            cost = np.exp(-self.decay_rate * min_distance_across_trajectory)
+        if self.aggregate == "min":
+            agg_cost = float(min(wp_costs))
+        elif self.aggregate == "sum":
+            agg_cost = float(np.sum(wp_costs) * dt)  # time-weighted integral
+        else:  # "avg"
+            agg_cost = float(np.mean(wp_costs))
 
-        # Normalize cost to be between 0 and 1
-        normalized_cost = (cost - self.normalization_bounds[0]) / (self.normalization_bounds[1] - self.normalization_bounds[0])
-        return float(self.weight * normalized_cost)
+        # normalize and apply this CF's weight
+        lo, hi = self.normalization_bounds
+        norm = (agg_cost - lo) / (hi - lo)
+        return float(self.weight * norm)
 
+    # ---------- gradient ----------
     def compute_gradient(self, trajectory: np.ndarray, dt: float = 0.1) -> np.ndarray:
-        """Compute analytical gradient for minimum distance-based obstacle avoidance cost"""
-        if not self.obstacles:
+        if not self.obstacles or trajectory.size == 0:
             return np.zeros_like(trajectory)
 
-        gradient = np.zeros_like(trajectory)
+        n_wp, n_j = trajectory.shape
+        grad = np.zeros_like(trajectory)
+        eps = 1e-4
 
-        # First pass: find the minimum distance across the entire trajectory
-        min_distance_across_trajectory = float('inf')
-        waypoint_distances = []
-
-        # Backup current state
+        # First pass: cache FK and closest obstacle data
+        infos = []
         self.kinematics_solver._backup_state()
-
         try:
-            # First pass: compute minimum distance at each waypoint
-            for i, waypoint in enumerate(trajectory):
-                # Get end-effector position
-                ee_position, _ = self.kinematics_solver.forward_kinematics(waypoint)
-
-                # Find minimum distance to any obstacle surface at this waypoint
-                min_distance_at_waypoint = float('inf')
-                closest_obstacle_info = None
-                
-                for obstacle in self.obstacles:
-                    # Distance to obstacle center
-                    distance_vec = ee_position - obstacle.center
-                    distance_to_center = np.linalg.norm(distance_vec)
-                    # Distance to obstacle surface
-                    distance_to_surface = distance_to_center - obstacle.radius
-                    
-                    if distance_to_surface < min_distance_at_waypoint:
-                        min_distance_at_waypoint = distance_to_surface
-                        closest_obstacle_info = {
-                            'obstacle': obstacle,
-                            'distance_vec': distance_vec,
-                            'distance_to_center': distance_to_center,
-                            'distance_to_surface': distance_to_surface,
-                            'ee_position': ee_position.copy()
-                        }
-                
-                waypoint_distances.append({
-                    'min_distance': min_distance_at_waypoint,
-                    'closest_obstacle_info': closest_obstacle_info
-                })
-                
-                # Track global minimum
-                min_distance_across_trajectory = min(min_distance_across_trajectory, float(min_distance_at_waypoint))
-
-            # Second pass: compute gradients only for waypoints that achieve the minimum distance
-            tolerance = 1e-6  # Small tolerance for floating-point comparison
-            
-            for i, waypoint in enumerate(trajectory):
-                waypoint_info = waypoint_distances[i]
-                
-                # Only compute gradient if this waypoint achieves (approximately) the minimum distance
-                if abs(waypoint_info['min_distance'] - min_distance_across_trajectory) <= tolerance:
-                    closest_info = waypoint_info['closest_obstacle_info']
-                    
-                    if (closest_info is not None and 
-                        closest_info['distance_to_center'] > 1e-8):
-                        
-                        # Compute Jacobian for this waypoint
-                        eps = 1e-4
-                        jacobian = np.zeros((3, len(waypoint)))
-                        ee_position = closest_info['ee_position']
-
-                        for j in range(len(waypoint)):
-                            waypoint_plus = waypoint.copy()
-                            waypoint_plus[j] += eps
-                            ee_plus, _ = self.kinematics_solver.forward_kinematics(waypoint_plus)
-                            jacobian[:, j] = (ee_plus - ee_position) / eps
-
-                        # Unit vector pointing away from closest obstacle center
-                        unit_vec = closest_info['distance_vec'] / closest_info['distance_to_center']
-                        
-                        # Compute cost gradient based on exponential decay applied to minimum distance
-                        if min_distance_across_trajectory <= 0:
-                            # Inside obstacle - gradient of exponential penalty
-                            # d/dx[1000 * exp(-α * min_distance)] = -1000α * exp(-α * min_distance)
-                            cost_gradient = -1000.0 * self.decay_rate * np.exp(-self.decay_rate * min_distance_across_trajectory) * unit_vec
-                        else:
-                            # Outside obstacle - gradient of exponential decay
-                            # d/dx[exp(-α * min_distance)] = -α * exp(-α * min_distance)
-                            cost_gradient = -self.decay_rate * np.exp(-self.decay_rate * min_distance_across_trajectory) * unit_vec
-
-                        # Chain rule: gradient w.r.t. joint angles
-                        gradient[i] += jacobian.T @ cost_gradient
-
+            for q in trajectory:
+                ee, _ = self.kinematics_solver.forward_kinematics(q)
+                # find closest obstacle and center distance
+                dcs = [(np.linalg.norm(ee - obs.center), obs) for obs in self.obstacles]
+                dc, obs = min(dcs, key=lambda t: t[0])  # distance to center, closest obstacle
+                d_surface = dc - obs.radius
+                infos.append((ee, obs, dc, d_surface))
         finally:
-            # Restore original state
             self.kinematics_solver._restore_state()
 
-        # Apply normalization to gradient (consistent with cost normalization)
-        normalization_factor = 1.0 / (self.normalization_bounds[1] - self.normalization_bounds[0])
-        return gradient * self.weight * normalization_factor
+        # Which waypoints contribute?
+        if self.aggregate == "min":
+            # Only the bottleneck waypoint(s)
+            waypoint_penalties = [self._waypoint_cost_from_surface_dist(d) for *_, d in infos]
+            min_val = min(waypoint_penalties)
+            idxs = [i for i, v in enumerate(waypoint_penalties) if abs(v - min_val) <= 1e-12]
+            wp_weight = 1.0  # no dt/avg factor for min
+        elif self.aggregate == "sum":
+            idxs = list(range(n_wp))
+            wp_weight = dt
+        else:  # "avg"
+            idxs = list(range(n_wp))
+            wp_weight = 1.0 / n_wp
 
+        # Accumulate gradient
+        for i in idxs:
+            ee, obs, dc, d_surface = infos[i]
+            if dc <= 1e-10:
+                continue  # degenerate; skip
+
+            # d(cost_wp)/d(d_surface)
+            if d_surface <= 0.0:
+                dcost_dd = -1000.0 * self.decay_rate * np.exp(-self.decay_rate * d_surface)
+            else:
+                dcost_dd = -self.decay_rate * np.exp(-self.decay_rate * d_surface)
+
+            # d(d_surface)/d(ee) = (ee - center)/||ee - center|| = unit vector away from center
+            unit = (ee - obs.center) / dc
+            dcost_dee = dcost_dd * unit  # shape (3,)
+
+            # Jacobian d(ee)/d(q) via finite-diff (keep your analytic FK if you have it)
+            q = trajectory[i]
+            J = np.zeros((3, n_j))
+            self.kinematics_solver._backup_state()
+            try:
+                for j in range(n_j):
+                    q_eps = q.copy(); q_eps[j] += eps
+                    ee_eps, _ = self.kinematics_solver.forward_kinematics(q_eps)
+                    J[:, j] = (ee_eps - ee) / eps
+            finally:
+                self.kinematics_solver._restore_state()
+
+            grad[i] += wp_weight * (J.T @ dcost_dee)
+
+        # apply normalization factor and this CF's weight
+        lo, hi = self.normalization_bounds
+        norm_factor = 1.0 / (hi - lo)
+        return grad * self.weight * norm_factor
+
+    # ---------- utils ----------
     def add_obstacle(self, obstacle: Obstacle):
-        """Add an obstacle to the list"""
         self.obstacles.append(obstacle)
 
     def remove_obstacle(self, index: int):
-        """Remove an obstacle by index"""
         if 0 <= index < len(self.obstacles):
             del self.obstacles[index]
 
     def get_obstacle_info(self) -> str:
-        """Get formatted string with obstacle information"""
         if not self.obstacles:
             return "No obstacles"
-
-        info_lines = []
+        lines = []
         for i, obs in enumerate(self.obstacles):
-            info_lines.append(
-                f"  Obstacle {i + 1}: center=({obs.center[0]:.2f}, {obs.center[1]:.2f}, {obs.center[2]:.2f}), "
+            lines.append(
+                f"  Obstacle {i+1}: center=({obs.center[0]:.2f}, {obs.center[1]:.2f}, {obs.center[2]:.2f}), "
                 f"radius={obs.radius:.3f}m, safety={obs.safe_distance:.3f}m"
             )
-        return "\n".join(info_lines)
+        return "\n".join(lines)
 
 
 class FixedZCostFunction(CostFunction):
@@ -630,3 +598,200 @@ class CostModeFactory:
                            rho: float = 0.01) -> CompositeCostFunction:
         """Create composite cost function for research with weighted maximum formulation."""
         return CompositeCostFunction(cost_functions, weights, mode='max', rho=rho)
+
+
+
+#########################################
+# previous ObstacleAvoidanceCostFunction
+#########################################
+
+# class ObstacleAvoidanceCostFunction(CostFunction):
+#     """Cost function for avoiding multiple spherical obstacles in Cartesian space"""
+
+#     def __init__(self,
+#                  kinematics_solver: KinematicsSolver,
+#                  obstacles: List[Obstacle],
+#                  weight: float = 1.0,
+#                  normalization_bounds: Tuple[float, float] = (0.0, 1.0),
+#                  decay_rate: float = 5.0):
+#         """
+#         Initialize obstacle avoidance cost function with exponential decay
+
+#         Args:
+#             kinematics_solver: KinematicsSolver instance for forward kinematics
+#             obstacles: List of Obstacle instances to avoid
+#             weight: Cost function weight
+#             decay_rate: Rate of exponential decay (higher = faster decay with distance)
+#         """
+#         # assert 1 >= weight >= 0, "Weight must be between 0 and 1"
+#         super().__init__(weight)
+#         self.kinematics_solver = kinematics_solver
+#         self.obstacles = obstacles if obstacles else []
+#         self.normalization_bounds = normalization_bounds
+#         self.decay_rate = decay_rate
+
+#     def compute_cost(self, trajectory: np.ndarray, dt: float = 0.1) -> float:
+#         """Compute obstacle avoidance cost based on MINIMUM distance to obstacles across entire trajectory"""
+#         if not self.obstacles:
+#             return 0.0
+
+#         # Find the minimum distance to obstacles across the entire trajectory
+#         min_distance_across_trajectory = float('inf')
+
+#         # Backup current state
+#         self.kinematics_solver._backup_state()
+
+#         try:
+#             for waypoint in trajectory:
+#                 # Get end-effector position for this waypoint
+#                 ee_position, _ = self.kinematics_solver.forward_kinematics(waypoint)
+
+#                 # Find minimum distance to any obstacle surface at this waypoint
+#                 min_distance_at_waypoint = float('inf')
+                
+#                 for obstacle in self.obstacles:
+#                     # Compute distance to obstacle center
+#                     distance_to_center = np.linalg.norm(ee_position - obstacle.center)
+#                     # Distance to obstacle surface (negative if inside obstacle)
+#                     distance_to_surface = distance_to_center - obstacle.radius
+                    
+#                     min_distance_at_waypoint = min(min_distance_at_waypoint, float(distance_to_surface))
+                
+#                 # Track the minimum distance across the entire trajectory
+#                 min_distance_across_trajectory = min(min_distance_across_trajectory, min_distance_at_waypoint)
+
+#         finally:
+#             # Restore original state
+#             self.kinematics_solver._restore_state()
+
+#         # Apply exponential decay to the minimum distance across the trajectory
+#         if min_distance_across_trajectory <= 0:
+#             # Inside obstacle - very high penalty
+#             cost = 1000.0 * np.exp(-self.decay_rate * min_distance_across_trajectory)
+#         else:
+#             # Outside obstacle - exponential decay with distance
+#             # Cost = exp(-α * min_distance) where α is decay_rate
+#             cost = np.exp(-self.decay_rate * min_distance_across_trajectory)
+
+#         # Normalize cost to be between 0 and 1
+#         normalized_cost = (cost - self.normalization_bounds[0]) / (self.normalization_bounds[1] - self.normalization_bounds[0])
+#         return float(self.weight * normalized_cost)
+
+#     def compute_gradient(self, trajectory: np.ndarray, dt: float = 0.1) -> np.ndarray:
+#         """Compute analytical gradient for minimum distance-based obstacle avoidance cost"""
+#         if not self.obstacles:
+#             return np.zeros_like(trajectory)
+
+#         gradient = np.zeros_like(trajectory)
+
+#         # First pass: find the minimum distance across the entire trajectory
+#         min_distance_across_trajectory = float('inf')
+#         waypoint_distances = []
+
+#         # Backup current state
+#         self.kinematics_solver._backup_state()
+
+#         try:
+#             # First pass: compute minimum distance at each waypoint
+#             for i, waypoint in enumerate(trajectory):
+#                 # Get end-effector position
+#                 ee_position, _ = self.kinematics_solver.forward_kinematics(waypoint)
+
+#                 # Find minimum distance to any obstacle surface at this waypoint
+#                 min_distance_at_waypoint = float('inf')
+#                 closest_obstacle_info = None
+                
+#                 for obstacle in self.obstacles:
+#                     # Distance to obstacle center
+#                     distance_vec = ee_position - obstacle.center
+#                     distance_to_center = np.linalg.norm(distance_vec)
+#                     # Distance to obstacle surface
+#                     distance_to_surface = distance_to_center - obstacle.radius
+                    
+#                     if distance_to_surface < min_distance_at_waypoint:
+#                         min_distance_at_waypoint = distance_to_surface
+#                         closest_obstacle_info = {
+#                             'obstacle': obstacle,
+#                             'distance_vec': distance_vec,
+#                             'distance_to_center': distance_to_center,
+#                             'distance_to_surface': distance_to_surface,
+#                             'ee_position': ee_position.copy()
+#                         }
+                
+#                 waypoint_distances.append({
+#                     'min_distance': min_distance_at_waypoint,
+#                     'closest_obstacle_info': closest_obstacle_info
+#                 })
+                
+#                 # Track global minimum
+#                 min_distance_across_trajectory = min(min_distance_across_trajectory, float(min_distance_at_waypoint))
+
+#             # Second pass: compute gradients only for waypoints that achieve the minimum distance
+#             tolerance = 1e-6  # Small tolerance for floating-point comparison
+            
+#             for i, waypoint in enumerate(trajectory):
+#                 waypoint_info = waypoint_distances[i]
+                
+#                 # Only compute gradient if this waypoint achieves (approximately) the minimum distance
+#                 if abs(waypoint_info['min_distance'] - min_distance_across_trajectory) <= tolerance:
+#                     closest_info = waypoint_info['closest_obstacle_info']
+                    
+#                     if (closest_info is not None and 
+#                         closest_info['distance_to_center'] > 1e-8):
+                        
+#                         # Compute Jacobian for this waypoint
+#                         eps = 1e-4
+#                         jacobian = np.zeros((3, len(waypoint)))
+#                         ee_position = closest_info['ee_position']
+
+#                         for j in range(len(waypoint)):
+#                             waypoint_plus = waypoint.copy()
+#                             waypoint_plus[j] += eps
+#                             ee_plus, _ = self.kinematics_solver.forward_kinematics(waypoint_plus)
+#                             jacobian[:, j] = (ee_plus - ee_position) / eps
+
+#                         # Unit vector pointing away from closest obstacle center
+#                         unit_vec = closest_info['distance_vec'] / closest_info['distance_to_center']
+                        
+#                         # Compute cost gradient based on exponential decay applied to minimum distance
+#                         if min_distance_across_trajectory <= 0:
+#                             # Inside obstacle - gradient of exponential penalty
+#                             # d/dx[1000 * exp(-α * min_distance)] = -1000α * exp(-α * min_distance)
+#                             cost_gradient = -1000.0 * self.decay_rate * np.exp(-self.decay_rate * min_distance_across_trajectory) * unit_vec
+#                         else:
+#                             # Outside obstacle - gradient of exponential decay
+#                             # d/dx[exp(-α * min_distance)] = -α * exp(-α * min_distance)
+#                             cost_gradient = -self.decay_rate * np.exp(-self.decay_rate * min_distance_across_trajectory) * unit_vec
+
+#                         # Chain rule: gradient w.r.t. joint angles
+#                         gradient[i] += jacobian.T @ cost_gradient
+
+#         finally:
+#             # Restore original state
+#             self.kinematics_solver._restore_state()
+
+#         # Apply normalization to gradient (consistent with cost normalization)
+#         normalization_factor = 1.0 / (self.normalization_bounds[1] - self.normalization_bounds[0])
+#         return gradient * self.weight * normalization_factor
+
+#     def add_obstacle(self, obstacle: Obstacle):
+#         """Add an obstacle to the list"""
+#         self.obstacles.append(obstacle)
+
+#     def remove_obstacle(self, index: int):
+#         """Remove an obstacle by index"""
+#         if 0 <= index < len(self.obstacles):
+#             del self.obstacles[index]
+
+#     def get_obstacle_info(self) -> str:
+#         """Get formatted string with obstacle information"""
+#         if not self.obstacles:
+#             return "No obstacles"
+
+#         info_lines = []
+#         for i, obs in enumerate(self.obstacles):
+#             info_lines.append(
+#                 f"  Obstacle {i + 1}: center=({obs.center[0]:.2f}, {obs.center[1]:.2f}, {obs.center[2]:.2f}), "
+#                 f"radius={obs.radius:.3f}m, safety={obs.safe_distance:.3f}m"
+#             )
+#         return "\n".join(info_lines)
