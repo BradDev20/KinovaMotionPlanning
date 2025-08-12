@@ -2,6 +2,8 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyArrowPatch
+from matplotlib.cm import ScalarMappable
+from matplotlib.colors import Normalize
 
 # Define folder name
 folder_name = "pareto_data_and_results"
@@ -10,8 +12,8 @@ folder_name = "pareto_data_and_results"
 os.makedirs(folder_name, exist_ok=True)
 
 # File paths
-data_path = os.path.join(folder_name, "tradeoff_data_100_w_sum.csv")
-plot_path = os.path.join(folder_name, "Pareto_front_100_w_sum.png")
+data_path = os.path.join(folder_name, "tradeoff_data_100_sphere_max.csv")
+plot_path = os.path.join(folder_name, "Pareto_front_100_sphere_max.png")
 
 # Load data
 df = pd.read_csv(data_path)
@@ -20,7 +22,9 @@ closenesses = df['closeness'].values
 alphas = df['alpha'].values
 
 # Style
-colors = plt.cm.plasma(alphas)
+cmap = plt.cm.plasma
+norm = Normalize(vmin=min(alphas), vmax=max(alphas))
+colors = cmap(norm(alphas))
 marker_size = 25
 smaller_marker_size = marker_size * 0.6
 label_fontsize = 10
@@ -45,8 +49,14 @@ for i in range(len(alphas)):
                linewidth=0.6,
                zorder=3)
 
+# Add colorbar for alpha
+sm = ScalarMappable(cmap=cmap, norm=norm)
+sm.set_array([])  # Dummy for colorbar
+cbar = plt.colorbar(sm, ax=ax, pad=0.02)
+cbar.set_label("Alpha", fontsize=label_fontsize, family=font)
+
 # Add fixed-position label inside plot frame (top-right corner)
-ax.text(0.95, 1.1, "Trade-offs between objectives for W_sum",
+ax.text(0.95, 1.1, "Trade-offs between objectives for W_max",
         transform=ax.transAxes,
         ha='right', va='top',
         fontsize=7,

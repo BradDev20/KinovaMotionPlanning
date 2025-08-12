@@ -15,8 +15,7 @@ and cost function configurations.
 """
 
 import mujoco
-print("##########################################")
-print(mujoco.__version__)
+print("Mujoco Version: ", mujoco.__version__)
 import numpy as np
 import time
 import sys
@@ -225,7 +224,6 @@ class TrajectoryOptimizationDemo(ABC):
         try:
             # Create scene and load model
             model_path = self.create_scene()
-            print(model_path)
             model = mujoco.MjModel.from_xml_path(model_path)
             data = mujoco.MjData(model)
             kinematics = KinematicsSolver(model_path)
