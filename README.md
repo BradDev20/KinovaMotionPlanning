@@ -141,6 +141,6 @@ Optional arguments:
 - **Color**: Alpha (trade-off weight from 0 to 1)
 
 Example:
-![Pareto Front Visualization](docs/media/pareto_front_example.png)
+![Pareto Front Visualization](docs/media/Pareto_front_example.png)
 
 
