@@ -102,3 +102,45 @@ For help with this CLI,
 ```
 python -m src.examples.pareto_search --help
 ```
+
+### Pareto Front Visualization
+
+To visualize the trade-off between trajectory length and obstacle avoidance:
+
+#### Step 1: Generate CSV Results
+
+Run the Pareto search and save results:
+```
+python -m src.examples.pareto_search --cost-mode sum --csv-file <PATH_TO_REPO>/src/pareto_data_and_results/tradeoff_data.csv
+```
+
+This creates a file at:
+```
+<PATH_TO_REPO>src/pareto_data_and_results/tradeoff_data.csv
+```
+
+#### Step 2: Plot the Pareto Front
+
+Visualize the results with:
+```
+python -m src.visualization.plot_pareto_front \
+    --input_csv <PATH_TO_REPO>/src/pareto_data_and_results/tradeoff_data.csv \
+    --output_folder <PATH_TO_REPO>/src/pareto_data_and_results \
+    --cost_mode max
+```
+
+Optional arguments:
+```
+--output_filename pareto_front_max.png
+```
+
+#### Plot Details
+
+- **X-axis**: Trajectory Length Cost  
+- **Y-axis**: Obstacle Closeness Cost  
+- **Color**: Alpha (trade-off weight from 0 to 1)
+
+Example:
+![Pareto Front Visualization](docs/media/Pareto_front_example.png)
+
+
