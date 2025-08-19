@@ -224,7 +224,7 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
             return
         os.makedirs(output_dir, exist_ok=True)
         
-        full_path = os.path.joint(output_dir, filename)
+        full_path = os.path.join(output_dir, filename)
 
         with open(full_path, mode='w', newline='') as f:
             writer = csv.writer(f)
