@@ -123,7 +123,7 @@ This creates a file at:
 
 Visualize the results with:
 ```
-python -m src.visualization.plot_pareto_front \
+python Pareto_front_visualizer.py \
     --input_csv <PATH_TO_REPO>/src/pareto_data_and_results/tradeoff_data.csv \
     --output_folder <PATH_TO_REPO>/src/pareto_data_and_results \
     --cost_mode max
