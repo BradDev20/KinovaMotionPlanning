@@ -126,12 +126,12 @@ Visualize the results with:
 python -m src.visualization.plot_pareto_front \
     --input_csv <PATH_TO_REPO>/src/pareto_data_and_results/tradeoff_data.csv \
     --output_folder <PATH_TO_REPO>/src/pareto_data_and_results \
-    --cost_mode sum
+    --cost_mode max
 ```
 
 Optional arguments:
 ```
---output_filename pareto_front_sum.png
+--output_filename pareto_front_max.png
 ```
 
 #### Plot Details
