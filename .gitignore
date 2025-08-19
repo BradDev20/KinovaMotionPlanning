@@ -3,6 +3,8 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+src/pareto_data_and_results/
+
 # C extensions
 *.so
 

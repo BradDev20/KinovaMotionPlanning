@@ -62,7 +62,10 @@ class UnconstrainedOptimDemo(TrajectoryOptimizationDemo):
             
             if strategy_choice == '1':
                 print("RISKY Strategy Selected: Prioritizing trajectory length")
-                length_cost = TrajectoryLengthCostFunction(weight=10.0)
+                length_cost = TrajectoryLengthCostFunction(
+                    kinematics_solver=kinematics,
+                    weight=10.0
+                )
                 planner.add_cost_function(length_cost)
             else:
                 print("SAFE Strategy Selected: Prioritizing safety importance")

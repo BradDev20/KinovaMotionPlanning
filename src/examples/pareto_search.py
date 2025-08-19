@@ -81,6 +81,7 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
         # return np.array([0.0, 0.5, 0.0, -2.5, 0.0, 0.45, 1.57])
         # return np.array([0.0, 0.5, 0.0, -2.5, 0.0, -1.0, 1.57])
         return np.array([0.0, -0.5, 0.0, 2.5, 0.0, 1.0, -1.57])
+        # return np.array([0.0, -0.35, 3.14, 3.73, 0.0, 5.41, 1.57])
     
     def get_max_trajectories(self) -> int:
         """Get maximum number of trajectories for Pareto search"""

@@ -63,7 +63,7 @@ class TrajectoryVisualizationManager:
             color: RGBA color array for the trace dots (optional)
             start_dot_offset: Starting dot index offset for multiple trajectories
         """
-        for i, pos in enumerate(ee_positions[-200:]):  # Show last 200 points
+        for i, pos in enumerate(ee_positions[-5000:]):  # Show last 200 points
             dot_id = start_dot_offset + i
             try:
                 body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, f"trace_dot_{dot_id}")
