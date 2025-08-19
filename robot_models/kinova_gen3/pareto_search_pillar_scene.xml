@@ -21,21 +21,21 @@
     <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
 
     <!-- Virtual pillar obstacle 1 visualization -->
-    <body name="pillar_obstacle_1" pos="-0.550 0.050 0.3">
-        <geom name="pillar_obstacle_1_geom" type="cylinder" size="0.05 0.3"
+    <body name="pillar_obstacle_1" pos="-0.6 -0.15 0.629">
+        <geom name="pillar_obstacle_1_geom" type="cylinder" size="0.04 0.629"
               rgba="1.0 0.2 0.2 0.6" material="" contype="0" conaffinity="0"/>
         <site name="pillar_obstacle_1_center" pos="0 0 0" size="0.005" rgba="1 0 0 1"/>
     </body>
 
     <!-- Virtual pillar obstacle 2 visualization -->
-    <body name="pillar_obstacle_2" pos="-0.350 0.250 0.25">
-        <geom name="pillar_obstacle_2_geom" type="cylinder" size="0.04 0.25"
+    <body name="pillar_obstacle_2" pos="-0.5 -0.01 0.629">
+        <geom name="pillar_obstacle_2_geom" type="cylinder" size="0.04 0.629"
               rgba="1.0 0.2 0.2 0.6" material="" contype="0" conaffinity="0"/>
         <site name="pillar_obstacle_2_center" pos="0 0 0" size="0.005" rgba="1 0 0 1"/>
     </body>
 
     <!-- Target position marker -->
-    <body name="target_marker" pos="-0.7 0.1 0.529">
+    <body name="target_marker" pos="-0.7 -0.1 0.529">
         <geom name="target_geom" type="sphere" size="0.03"
               rgba="0.0 0.8 0.0 0.8" material="" contype="0" conaffinity="0"/>
         <site name="target_center" pos="0 0 0" size="0.005" rgba="0 1 0 1"/>
@@ -43,7 +43,7 @@
 
     <!-- Trajectory trace dots (initially hidden at origin) -->
     <body name="trace_dot_0" pos="0 0 -10">
-        <geom name="trace_dot_0_geom" type="sphere" size="0.008"
+        <geom name="trace_dot_0_geom" type="sphhttps://docs.google.com/presentation/d/157KiXr-Z41m8OGULeog2hGtufcC0Q_emz57cs08Yx34/edit?slide=id.g373f5ed1996_0_47#slide=id.g373f5ed1996_0_47ere" size="0.008"
               rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
     </body>
     <body name="trace_dot_1" pos="0 0 -10">
