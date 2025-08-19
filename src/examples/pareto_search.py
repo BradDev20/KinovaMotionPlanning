@@ -218,15 +218,20 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
         
         print(f"Search complete: {successful_count}/{len(self.alpha_values)} successful trajectories")
 
-    def save_results_to_csv(self, filename="tradeoff_data_100_sphere_sum_2.csv"):
+    def save_results_to_csv(self, output_dir="src/pareto_data_and_results", filename="tradeoff_data.csv"):
         if not self.results:
             print("No results to save.")
             return
-        with open(filename, mode='w', newline='') as f:
+        os.makedirs(output_dir, exist_ok=True)
+        
+        full_path = os.path.joint(output_dir, filename)
+
+        with open(full_path, mode='w', newline='') as f:
             writer = csv.writer(f)
             writer.writerow(["length", "closeness", "alpha"])
             writer.writerows(self.results)
-        print(f"Results saved to {filename}")
+
+        print(f"Results saved to {full_path}")
     
     def execute_planning_loop(self, model, data, kinematics, viewer_handle):
         """Execute Pareto search and visualize results"""
@@ -234,7 +239,8 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
         self.run_pareto_search(model, data, kinematics)
         
         # Plot trade-off between length and obstacle cost
-        self.save_results_to_csv()
+        self.save_results_to_csv(output_dir=args.output_dir, filename=args.csv_file)
+
 
         # Visualize all trajectories
         if self.trajectories:
@@ -257,6 +263,12 @@ def parse_arguments():
                        help='End value for alpha parameter (default: 1.0)')
     parser.add_argument('--alpha-step', type=float, default=0.1,
                        help='Step size for alpha parameter (default: 0.1)')
+    # arguments related to data saving 
+    parser.add_argument('--csv-file', type=str, default='tradeoff_data.csv',
+                    help='Name of the CSV file to save results (default: tradeoff_data_100_sphere_sum.csv)')
+    parser.add_argument('--output-dir', type=str, default='src/pareto_data_and_results',
+                    help='Directory to save CSV file (default: src/pareto_data_and_results)')
+
     # NEW: seed argument
     parser.add_argument('--seed', type=int, default=None,
                         help='Random seed for reproducibility (default: None)')
