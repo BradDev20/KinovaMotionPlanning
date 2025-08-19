@@ -147,6 +147,7 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
         try:
             # Create individual cost functions
             length_cost = TrajectoryLengthCostFunction(
+                kinematics_solver=kinematics,
                 weight=1.0,
                 normalization_bounds=(1.0, 2.0)
             )

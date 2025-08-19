@@ -72,6 +72,7 @@ class ConstrainedOptimDemo(TrajectoryOptimizationDemo):
 
             # Add trajectory length cost function
             length_cost = TrajectoryLengthCostFunction(
+                kinematics_solver=kinematics,
                 weight=length_weight,
                 normalization_bounds=(1.0, 2.0)
             )

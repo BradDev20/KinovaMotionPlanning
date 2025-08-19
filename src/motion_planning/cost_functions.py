@@ -139,48 +139,100 @@ class SmoothnessCostFunction(CostFunction):
 
 
 class TrajectoryLengthCostFunction(CostFunction):
-    """Cost function for minimizing total trajectory length in joint space"""
+    """Cost function for minimizing total trajectory length in end-effector space"""
 
-    def __init__(self, weight: float = 1.0, normalization_bounds: Tuple[float, float] = (0.0, 1.0)):
+    def __init__(self, kinematics_solver: KinematicsSolver, weight: float = 1.0, 
+                 normalization_bounds: Tuple[float, float] = (0.0, 1.0)):
         # assert 1 >= weight >= 0, "Weight must be between 0 and 1"
         super().__init__(weight)
+        self.kinematics_solver = kinematics_solver
         self.normalization_bounds = normalization_bounds
 
     def compute_cost(self, trajectory: np.ndarray, dt: float = 0.1) -> float:
-        """Compute total trajectory length cost"""
+        """Compute total trajectory length cost in end-effector space"""
         if trajectory.shape[0] < 2:
             return 0.0
 
-        # Compute distances between consecutive waypoints
-        distances = np.linalg.norm(np.diff(trajectory, axis=0), axis=1)
-        total_length = np.sum(distances)
+        self.kinematics_solver._backup_state()
+        try:
+            # Convert joint trajectory to end-effector positions
+            ee_positions = []
+            for q in trajectory:
+                ee_pos, _ = self.kinematics_solver.forward_kinematics(q)
+                ee_positions.append(ee_pos)
+            
+            ee_positions = np.array(ee_positions)
+            
+            # Compute distances between consecutive end-effector positions
+            distances = np.linalg.norm(np.diff(ee_positions, axis=0), axis=1)
+            total_length = np.sum(distances)
+            
+        finally:
+            self.kinematics_solver._restore_state()
 
         # Normalize cost to be between 0 and 1
         normalized_cost = (total_length - self.normalization_bounds[0]) / (self.normalization_bounds[1] - self.normalization_bounds[0])
 
         return float(self.weight * normalized_cost)
 
+    def _compute_jacobian(self, joint_positions: np.ndarray, eps: float = 1e-6) -> np.ndarray:
+        """Compute end-effector position Jacobian using finite differences"""
+        n_joints = len(joint_positions)
+        jacobian = np.zeros((3, n_joints))  # 3D position Jacobian
+        
+        # Get base end-effector position
+        ee_pos_base, _ = self.kinematics_solver.forward_kinematics(joint_positions)
+        
+        # Compute partial derivatives for each joint
+        for j in range(n_joints):
+            q_eps = joint_positions.copy()
+            q_eps[j] += eps
+            ee_pos_eps, _ = self.kinematics_solver.forward_kinematics(q_eps)
+            jacobian[:, j] = (ee_pos_eps - ee_pos_base) / eps
+            
+        return jacobian
+
     def compute_gradient(self, trajectory: np.ndarray, dt: float = 0.1) -> np.ndarray:
-        """Compute analytical gradient for trajectory length cost"""
+        """Compute analytical gradient for trajectory length cost in end-effector space"""
         if trajectory.shape[0] < 2:
             return np.zeros_like(trajectory)
 
         gradient = np.zeros_like(trajectory)
+        
+        self.kinematics_solver._backup_state()
+        try:
+            # Convert joint trajectory to end-effector positions and compute Jacobians
+            ee_positions = []
+            jacobians = []
+            
+            for q in trajectory:
+                ee_pos, _ = self.kinematics_solver.forward_kinematics(q)
+                ee_positions.append(ee_pos)
+                jacobians.append(self._compute_jacobian(q))
+            
+            ee_positions = np.array(ee_positions)
+            
+            # Compute gradient using chain rule: dL/dq = dL/dx * dx/dq
+            for i in range(trajectory.shape[0] - 1):
+                # Vector from current to next end-effector position
+                diff = ee_positions[i + 1] - ee_positions[i]
+                distance = np.linalg.norm(diff)
+                
+                if distance > 1e-8:  # Avoid division by zero
+                    # Unit vector in direction of motion
+                    unit_vector = diff / distance
+                    
+                    # Gradient w.r.t. end-effector positions
+                    # dL/dx_i = -unit_vector, dL/dx_{i+1} = +unit_vector
+                    
+                    # Chain rule: dL/dq_i = dL/dx_i * dx_i/dq_i
+                    gradient[i] += -unit_vector @ jacobians[i]
+                    gradient[i + 1] += unit_vector @ jacobians[i + 1]
+                    
+        finally:
+            self.kinematics_solver._restore_state()
 
-        # Compute unit vectors between consecutive waypoints
-        for i in range(trajectory.shape[0] - 1):
-            diff = trajectory[i + 1] - trajectory[i]
-            distance = np.linalg.norm(diff)
-
-            if distance > 1e-8:  # Avoid division by zero
-                unit_vector = diff / distance
-
-                # Gradient contribution to point i (negative direction)
-                gradient[i] -= unit_vector
-                # Gradient contribution to point i+1 (positive direction)
-                gradient[i + 1] += unit_vector
-
-        # Apply normalization to gradient (consistent with cost normalization)
+        # Apply normalization factor (consistent with cost normalization)
         normalization_factor = 1.0 / (self.normalization_bounds[1] - self.normalization_bounds[0])
         return gradient * self.weight * normalization_factor
 
