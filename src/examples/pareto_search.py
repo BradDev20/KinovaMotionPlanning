@@ -14,6 +14,9 @@ from typing import List
 from dataclasses import dataclass
 import csv
 import random
+import pickle
+import json
+from datetime import datetime
 # Try to import matplotlib for colormap, fallback if not available
 try:
     import matplotlib.pyplot as plt
@@ -44,6 +47,8 @@ class SearchConfiguration:
     alpha_step: float = 1.0
     cost_mode: str = 'sum'
     rho: float = 0.01
+    save_trajectories: bool = True
+    experiment_name: str = None
 
 
 class ParetoSearchDemo(MultiTrajectoryDemo):
@@ -55,6 +60,12 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
         self.alpha_values = np.arange(config.alpha_start, config.alpha_end + config.alpha_step, config.alpha_step)
         self.colors = self._generate_plasma_colors(len(self.alpha_values))
         self.results = []
+        self.experiment_dir = None
+        self.trajectory_metadata = []
+        
+        # Setup experiment directory if saving is enabled
+        if config.save_trajectories:
+            self._setup_experiment_directory()
         
     def define_obstacles(self) -> List[Obstacle]:
         """Define obstacles for the Pareto search demo"""
@@ -129,6 +140,82 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
                 colors.append([r, g, b, 0.8])
             return np.array(colors)
     
+    def _setup_experiment_directory(self):
+        """Setup experiment directory for saving trajectories and metadata"""
+        if self.config.experiment_name is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            self.config.experiment_name = f"pareto_search_{timestamp}"
+        
+        self.experiment_dir = os.path.join("src/pareto_data_and_results", self.config.experiment_name)
+        os.makedirs(self.experiment_dir, exist_ok=True)
+        
+        # Save experiment configuration
+        config_path = os.path.join(self.experiment_dir, "experiment_config.json")
+        config_dict = {
+            'alpha_start': self.config.alpha_start,
+            'alpha_end': self.config.alpha_end,
+            'alpha_step': self.config.alpha_step,
+            'cost_mode': self.config.cost_mode,
+            'rho': self.config.rho,
+            'save_trajectories': self.config.save_trajectories,
+            'experiment_name': self.config.experiment_name,
+            'timestamp': datetime.now().isoformat(),
+            'target_position': self.define_target_position().tolist(),
+            'start_config': self.define_start_config().tolist(),
+            'obstacles': [{'center': obs.center.tolist(), 'radius': obs.radius, 'safe_distance': obs.safe_distance} 
+                         for obs in self.obstacles]
+        }
+        
+        with open(config_path, 'w') as f:
+            json.dump(config_dict, f, indent=2)
+        
+        print(f"Experiment directory created: {self.experiment_dir}")
+    
+    def _save_trajectory(self, trajectory: List[np.ndarray], alpha: float, 
+                        length_cost: float, obstacle_cost: float, color: np.ndarray):
+        """Save a single trajectory with its metadata"""
+        if not self.config.save_trajectories or self.experiment_dir is None:
+            return
+        
+        trajectory_id = f"alpha_{alpha:.3f}".replace('.', 'p')
+        trajectory_path = os.path.join(self.experiment_dir, f"trajectory_{trajectory_id}.pkl")
+        
+        # Convert trajectory to numpy array for easier storage
+        trajectory_array = np.array(trajectory)
+        
+        trajectory_data = {
+            'trajectory': trajectory_array,
+            'alpha': alpha,
+            'length_cost': length_cost,
+            'obstacle_cost': obstacle_cost,
+            'color': color,
+            'length_weight': alpha,
+            'obstacle_weight': 1.0 - alpha,
+            'trajectory_id': trajectory_id,
+            'waypoint_count': len(trajectory),
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        # Save trajectory data
+        with open(trajectory_path, 'wb') as f:
+            pickle.dump(trajectory_data, f)
+        
+        # Add to metadata list
+        metadata_entry = {
+            'trajectory_id': trajectory_id,
+            'alpha': alpha,
+            'length_cost': length_cost,
+            'obstacle_cost': obstacle_cost,
+            'length_weight': alpha,
+            'obstacle_weight': 1.0 - alpha,
+            'filename': f"trajectory_{trajectory_id}.pkl",
+            'waypoint_count': len(trajectory),
+            'color': color.tolist()
+        }
+        self.trajectory_metadata.append(metadata_entry)
+        
+        print(f"Saved trajectory for α={alpha:.3f} to {trajectory_path}")
+    
     def plan_single_trajectory(self, alpha: float, color: np.ndarray, model, data, kinematics):
         """Plan a single trajectory for given alpha value"""
         print(f"Planning trajectory for α={alpha:.1f} ({self.config.cost_mode.upper()} mode)")
@@ -193,6 +280,9 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
                 print(f"Closeness cost for α={alpha:.1f}: {f_obstacle:.4f}")
 
                 self.results.append((f_length, f_obstacle, alpha))
+                
+                # Save trajectory if enabled
+                self._save_trajectory(trajectory, alpha, f_length, f_obstacle, color)
     
                 print(f"α={alpha:.1f}: Success")
                 return trajectory
@@ -219,6 +309,21 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
                 successful_count += 1
         
         print(f"Search complete: {successful_count}/{len(self.alpha_values)} successful trajectories")
+        
+        # Save trajectory metadata if trajectories were saved
+        if self.config.save_trajectories and self.experiment_dir is not None:
+            self._save_trajectory_metadata()
+
+    def _save_trajectory_metadata(self):
+        """Save metadata for all trajectories to a JSON file"""
+        if not self.trajectory_metadata:
+            return
+            
+        metadata_path = os.path.join(self.experiment_dir, "trajectory_metadata.json")
+        with open(metadata_path, 'w') as f:
+            json.dump(self.trajectory_metadata, f, indent=2)
+        
+        print(f"Trajectory metadata saved to {metadata_path}")
 
     def save_results_to_csv(self, output_dir="src/pareto_data_and_results", filename="tradeoff_data.csv"):
         if not self.results:
@@ -275,6 +380,14 @@ def parse_arguments():
     parser.add_argument('--seed', type=int, default=None,
                         help='Random seed for reproducibility (default: None)')
     
+    # Trajectory saving arguments
+    parser.add_argument('--save-trajectories', action='store_true', default=True,
+                        help='Save optimized trajectories to experiment directory (default: True)')
+    parser.add_argument('--no-save-trajectories', dest='save_trajectories', action='store_false',
+                        help='Disable trajectory saving')
+    parser.add_argument('--experiment-name', type=str, default=None,
+                        help='Name for the experiment directory (default: auto-generated with timestamp)')
+    
     return parser.parse_args()
 
 
@@ -299,7 +412,9 @@ if __name__ == "__main__":
         alpha_end=args.alpha_end,
         alpha_step=args.alpha_step,
         cost_mode=args.cost_mode,
-        rho=args.rho
+        rho=args.rho,
+        save_trajectories=args.save_trajectories,
+        experiment_name=args.experiment_name
     )
     
     # Create and run demo
