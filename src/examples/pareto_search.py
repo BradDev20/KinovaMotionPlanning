@@ -256,8 +256,8 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
             )
 
             # Set up composite cost function
-            cost_functions = [length_cost, safety_cost, z_constraint]
-            weights = [length_weight, obstacle_weight, 0.0]
+            cost_functions = [length_cost, safety_cost]
+            weights = [length_weight, obstacle_weight]
             
             composite_cost = planner.setup_composite_cost(
                 cost_functions=cost_functions,
