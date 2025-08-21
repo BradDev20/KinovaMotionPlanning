@@ -153,8 +153,8 @@ class MujocoSceneBuilder:
         
         # Save to output file
         output_path = f'robot_models/kinova_gen3/{output_filename}'
-        # with open(output_path, 'w') as f:
-        #     f.write(modified_content)
+        with open(output_path, 'w') as f:
+            f.write(modified_content)
         
         return output_path
         

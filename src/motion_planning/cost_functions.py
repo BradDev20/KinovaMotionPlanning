@@ -171,8 +171,8 @@ class TrajectoryLengthCostFunction(CostFunction):
             self.kinematics_solver._restore_state()
 
         # Normalize cost to be between 0 and 1
-        normalized_cost = (total_length - self.normalization_bounds[0]) / (self.normalization_bounds[1] - self.normalization_bounds[0])
-
+        normalized_cost = total_length
+        
         return float(self.weight * normalized_cost)
 
     def _compute_jacobian(self, joint_positions: np.ndarray, eps: float = 1e-6) -> np.ndarray:
