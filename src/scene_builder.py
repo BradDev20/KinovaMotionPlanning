@@ -210,7 +210,7 @@ def create_pareto_scene(obstacles: List[Obstacle],
         Path to the created scene file
     """
     # Conservative estimate for trace dots needed
-    max_dots_needed = max_trajectories * 100
+    max_dots_needed = max_trajectories * 10
     
     builder = MujocoSceneBuilder()
     return (builder
