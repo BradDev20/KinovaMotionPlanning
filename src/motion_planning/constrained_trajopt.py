@@ -32,6 +32,11 @@ class ConstrainedTrajOptPlanner(UnconstrainedTrajOptPlanner):
         super().__init__(model, data, n_waypoints, dt, cost_mode)
         self.max_velocity = max_velocity
         self.max_acceleration = max_acceleration
+        self._z_con_enabled = False
+        self._z_target = None
+        self._z_tol = None
+        self._kin = None
+
 
     def _create_bounds(self, start_config: np.ndarray, goal_config: np.ndarray):
         """Create bounds for optimization variables"""
@@ -176,6 +181,47 @@ class ConstrainedTrajOptPlanner(UnconstrainedTrajOptPlanner):
         
         return jacobian
 
+    def enable_fixed_z_constraint(self, kinematics_solver, target_z: float, tol: float = 1e-3):
+        """Enable |z(q)-target_z| <= tol for (most) waypoints."""
+        self._z_con_enabled = True
+        self._kin = kinematics_solver
+        self._z_target = float(target_z)
+        self._z_tol = float(tol)
+
+    def _z_from_fk(self, q: np.ndarray) -> float:
+        fk = self._kin.forward_kinematics(q)
+        # Common patterns:
+        # 1) (pos, quat) tuple
+        if isinstance(fk, tuple) and len(fk) >= 1:
+            pos = fk[0]
+            return float(pos[2])
+        # 2) dict like {'pos': np.array([x,y,z]), ...}
+        if isinstance(fk, dict) and 'pos' in fk:
+            return float(fk['pos'][2])
+        # 3) flat array (x, y, z, qw, qx, qy, qz) or similar
+        try:
+            arr = np.asarray(fk).reshape(-1)
+            return float(arr[2])
+        except Exception:
+            raise RuntimeError("forward_kinematics(q) returned an unexpected shape")
+
+    def _compute_fixed_z_constraints(self, trajectory_vector: np.ndarray) -> np.ndarray:
+        if not self._z_con_enabled:
+            return np.array([])
+        traj = self._vector_to_trajectory(trajectory_vector)
+        if traj.shape[0] < 2:
+            return np.array([])
+
+        cons = []
+        # constrain interior waypoints (1..N-2); include endpoints if appropriate for your start/goal
+        for i in range(1, traj.shape[0]-1):
+            q = traj[i]
+            z = self._z_from_fk(q)
+            e = z - self._z_target
+            cons.append(self._z_tol - e)  # z - z_t <= tol
+            cons.append(self._z_tol + e)  # z - z_t >= -tol
+        return np.array(cons, dtype=float)
+
     def _create_constraints(self):
         """Create constraint dictionaries for scipy.optimize.minimize"""
         constraints = []
@@ -195,7 +241,14 @@ class ConstrainedTrajOptPlanner(UnconstrainedTrajOptPlanner):
             'jac': self._compute_acceleration_constraint_jacobian
         }
         constraints.append(acceleration_constraint)
-        
+
+        if self._z_con_enabled:
+            # Let SLSQP estimate Jacobian numerically: omit 'jac' for simplicity.
+            constraints.append({
+                'type': 'ineq',
+                'fun': self._compute_fixed_z_constraints
+            })
+
         return constraints
 
     def _create_callback(self, max_evaluations: int = 1000):

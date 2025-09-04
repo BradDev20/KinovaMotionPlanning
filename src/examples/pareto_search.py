@@ -233,6 +233,12 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
         planner = self.create_planner(model, data)
         
         try:
+            planner.enable_fixed_z_constraint(
+            kinematics_solver=kinematics,
+            target_z=self.define_target_position()[2],
+            tol=0.05  # meters; tighten/loosen as needed
+)
+            
             # Create individual cost functions
             length_cost = TrajectoryLengthCostFunction(
                 kinematics_solver=kinematics,
@@ -249,11 +255,11 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
                 aggregate="sum"
             )
 
-            z_constraint = FixedZCostFunction(
-                kinematics_solver=kinematics,
-                target_z=self.define_target_position()[2],  # or hardcode like 0.529
-                weight=100.0  # Large enough to enforce it as a constraint
-            )
+            # z_constraint = FixedZCostFunction(
+            #     kinematics_solver=kinematics,
+            #     target_z=self.define_target_position()[2],  # or hardcode like 0.529
+            #     weight=100.0  # Large enough to enforce it as a constraint
+            # )
 
             # Set up composite cost function
             cost_functions = [length_cost, safety_cost]
