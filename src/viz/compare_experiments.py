@@ -26,8 +26,8 @@ from trajectory_loader import TrajectoryLoader
 
 # EXPERIMENT DIRECTORIES TO COMPARE
 EXPERIMENT_DIRECTORIES = [
-    "src/pareto_data_and_results/w20_sum_test",
-    "src/pareto_data_and_results/w20_max_test_z"
+    "src/pareto_data_and_results/w100_sum_z_constraint",
+    "src/pareto_data_and_results/zohre_max_z_constraint_100"
 ]
 
 # Color palette for experiments
