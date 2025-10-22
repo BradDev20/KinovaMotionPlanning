@@ -3,7 +3,7 @@ import mujoco
 from typing import List, Tuple, Callable, Optional, Dict, Any
 from .cost_functions import CostFunction, CompositeCostFunction
 from scipy.optimize import minimize
-
+import time
 
 class UnconstrainedTrajOptPlanner:
     """Trajectory Optimization planner using cost-based optimization (no constraints)"""
@@ -29,6 +29,10 @@ class UnconstrainedTrajOptPlanner:
         self.n_waypoints = n_waypoints
         self.dt = dt
         self.n_dof = 7  # Kinova Gen3 has 7 DOF
+        self.f_tol = 1e-6
+        self.g_tol = 1e-5
+        self.max_iter = 500
+        self.max_fun = 1000
         
         # Cost mode configuration
         if cost_mode not in ['legacy', 'composite']:
@@ -51,6 +55,7 @@ class UnconstrainedTrajOptPlanner:
         # Progress tracking
         self.iteration_count = 0
         self.last_cost = float('inf')
+        self.last_iteration_time = time.time()
 
     def add_cost_function(self, cost_fn: CostFunction):
         """Add a cost function to the optimization (legacy mode only)"""
@@ -133,9 +138,13 @@ class UnconstrainedTrajOptPlanner:
 
         # Progress feedback
         self.iteration_count += 1
+        average_iteration_time = (time.time() - self.last_iteration_time) / self.iteration_count
+
         if self.iteration_count % 10 == 0 or total_cost < self.last_cost * 0.9:
-            print(f"  Iteration {self.iteration_count}: Cost = {total_cost:.3f}")
-            self.last_cost = total_cost
+            print(f"  Iteration {self.iteration_count}: Cost = {total_cost:.3f}, Avg Time = {average_iteration_time:.3f}s")
+        
+        # Always update last_cost for convergence detection
+        self.last_cost = total_cost
 
         return total_cost
 
@@ -231,10 +240,10 @@ class UnconstrainedTrajOptPlanner:
                 jac=self._compute_total_gradient,
                 bounds=bounds,
                 options={
-                    'maxiter': 500,  # More iterations for complex scenarios
-                    'ftol': 1e-6,  # Tighter tolerance for better convergence
-                    'gtol': 1e-5,  # Tighter gradient tolerance
-                    'maxfun': 1000,  # Limit function evaluations to prevent hanging
+                    'maxiter': self.max_iter,  # More iterations for complex scenarios
+                    'ftol': self.f_tol,  # Tighter tolerance for better convergence
+                    'gtol': self.g_tol,  # Tighter gradient tolerance
+                    'maxfun': self.max_fun,  # Limit function evaluations to prevent hanging
                     'disp': False  # Suppress verbose output
                 }
             )

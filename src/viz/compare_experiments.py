@@ -26,8 +26,9 @@ from trajectory_loader import TrajectoryLoader
 
 # EXPERIMENT DIRECTORIES TO COMPARE
 EXPERIMENT_DIRECTORIES = [
-    "src/pareto_data_and_results/w100_sum_z_constraint",
-    "src/pareto_data_and_results/zohre_max_z_constraint_100"
+    # "/Users/connor/Desktop/DevProjects/KinovaMotionPlanning/src/pareto_data_and_results/toy_sum",
+    # "/Users/connor/Desktop/DevProjects/KinovaMotionPlanning/src/pareto_data_and_results/toy_max",
+    "/Users/connor/Desktop/DevProjects/KinovaMotionPlanning/src/pareto_data_and_results/quick_test"
 ]
 
 # Color palette for experiments
@@ -61,6 +62,9 @@ class ExperimentData:
             self.length_costs = np.array([t['length_cost'] for t in self.metadata])
             self.obstacle_costs = np.array([t['obstacle_cost'] for t in self.metadata])
             
+            # Initialize dominated mask (all non-dominated by default)
+            self.is_dominated = np.zeros(len(self.metadata), dtype=bool)
+            
             self.loaded_successfully = True
             print(f"✓ Loaded {len(self.metadata)} trajectories from {self.experiment_name}")
             
@@ -70,6 +74,7 @@ class ExperimentData:
             self.alphas = np.array([])
             self.length_costs = np.array([])
             self.obstacle_costs = np.array([])
+            self.is_dominated = np.array([], dtype=bool)
     
     def get_display_name(self) -> str:
         """Generate a nice display name for the experiment"""
@@ -91,14 +96,43 @@ class ExperimentData:
             'length_range': (self.length_costs.min(), self.length_costs.max()),
             'obstacle_range': (self.obstacle_costs.min(), self.obstacle_costs.max())
         }
+    
+    def identify_dominated_solutions(self):
+        """
+        Identify Pareto dominated solutions within this experiment.
+        A solution is dominated if there exists another solution that is
+        better in at least one objective and not worse in any objective.
+        """
+        n = len(self.length_costs)
+        self.is_dominated = np.zeros(n, dtype=bool)
+        
+        for i in range(n):
+            for j in range(n):
+                if i == j:
+                    continue
+                
+                # Check if j dominates i (both objectives are being minimized)
+                length_better = self.length_costs[j] <= self.length_costs[i]
+                obstacle_better = self.obstacle_costs[j] <= self.obstacle_costs[i]
+                strictly_better = (self.length_costs[j] < self.length_costs[i] or 
+                                  self.obstacle_costs[j] < self.obstacle_costs[i])
+                
+                if length_better and obstacle_better and strictly_better:
+                    self.is_dominated[i] = True
+                    break
+        
+        num_dominated = np.sum(self.is_dominated)
+        num_pareto = n - num_dominated
+        print(f"  → {self.experiment_name}: {num_pareto} Pareto optimal, {num_dominated} dominated")
 
 
 class MultiExperimentPlotter:
     """Plots multiple experiments on the same Pareto front"""
     
-    def __init__(self, experiment_dirs: List[str]):
+    def __init__(self, experiment_dirs: List[str], filter_dominated: bool = False):
         """Initialize with list of experiment directories"""
         self.experiments = []
+        self.filter_dominated = filter_dominated
         
         # Load all experiments
         for exp_dir in experiment_dirs:
@@ -113,6 +147,12 @@ class MultiExperimentPlotter:
             raise ValueError("No valid experiments found!")
         
         print(f"\nLoaded {len(self.experiments)} experiments for comparison")
+        
+        # Identify dominated solutions if filtering is enabled
+        if self.filter_dominated:
+            print("\nIdentifying dominated solutions...")
+            for exp in self.experiments:
+                exp.identify_dominated_solutions()
     
     def create_comparison_plot(self, figsize: Tuple[float, float] = (6, 4)) -> plt.Figure:
         """Create the multi-experiment comparison plot"""
@@ -126,25 +166,74 @@ class MultiExperimentPlotter:
         legend_handles = []
         legend_labels = []
         
+        # Determine if we should use mode-based coloring (only for single experiments)
+        use_mode_coloring = len(self.experiments) == 1
+        
         for i, experiment in enumerate(self.experiments):
-            color = EXPERIMENT_COLORS[i % len(EXPERIMENT_COLORS)]
+            # Assign color based on experiment mode if only one experiment
+            if use_mode_coloring:
+                cost_mode = experiment.config.get('cost_mode', 'unknown')
+                if cost_mode == 'sum':
+                    color = '#2E86AB'  # Blue
+                elif cost_mode == 'max':
+                    color = '#A23B72'  # Purple
+                elif cost_mode == 'max_constrained':
+                    color = '#F18F01'  # Orange
+                else:
+                    color = EXPERIMENT_COLORS[i % len(EXPERIMENT_COLORS)]
+            else:
+                color = EXPERIMENT_COLORS[i % len(EXPERIMENT_COLORS)]
             
-            # Plot points
-            scatter = ax.scatter(
-                experiment.length_costs, 
-                experiment.obstacle_costs,
-                c=color,
-                s=50,
-                marker='D',
-                edgecolor='white',
-                linewidth=1.0,
-                alpha=0.8,
-                zorder=3,
-                label=experiment.get_display_name()
-            )
-            
-            legend_handles.append(scatter)
-            legend_labels.append(experiment.get_display_name())
+            if self.filter_dominated:
+                # Separate Pareto optimal and dominated solutions
+                pareto_mask = ~experiment.is_dominated
+                dominated_mask = experiment.is_dominated
+                
+                # Plot Pareto optimal solutions
+                if np.any(pareto_mask):
+                    scatter = ax.scatter(
+                        experiment.length_costs[pareto_mask], 
+                        experiment.obstacle_costs[pareto_mask],
+                        c=color,
+                        s=50,
+                        marker='D',
+                        edgecolor='white',
+                        linewidth=1.0,
+                        alpha=0.8,
+                        zorder=3,
+                        label=experiment.get_display_name()
+                    )
+                    legend_handles.append(scatter)
+                    legend_labels.append(experiment.get_display_name())
+                
+                # Plot dominated solutions with 'x' markers (no legend)
+                if np.any(dominated_mask):
+                    ax.scatter(
+                        experiment.length_costs[dominated_mask], 
+                        experiment.obstacle_costs[dominated_mask],
+                        c=color,
+                        s=40,
+                        marker='x',
+                        linewidth=1.5,
+                        alpha=0.4,
+                        zorder=2
+                    )
+            else:
+                # Plot all points normally
+                scatter = ax.scatter(
+                    experiment.length_costs, 
+                    experiment.obstacle_costs,
+                    c=color,
+                    s=50,
+                    marker='D',
+                    edgecolor='white',
+                    linewidth=1.0,
+                    alpha=0.8,
+                    zorder=3,
+                    label=experiment.get_display_name()
+                )
+                legend_handles.append(scatter)
+                legend_labels.append(experiment.get_display_name())
         
         # Style the plot
         self._style_axes(ax, all_length_costs, all_obstacle_costs)
@@ -162,8 +251,10 @@ class MultiExperimentPlotter:
         )
         
         # Add title
-        plt.suptitle('Pareto Front Comparison Across Experiments', 
-                    fontsize=14, fontweight='bold', y=0.95)
+        title = 'Pareto Front Comparison Across Experiments'
+        if self.filter_dominated:
+            title += '\n(Dominated solutions marked with ×)'
+        plt.suptitle(title, fontsize=14, fontweight='bold', y=0.95)
         
         plt.tight_layout()
         return fig
@@ -257,6 +348,8 @@ def parse_arguments():
                         help='Output DPI (default: 300)')
     parser.add_argument('--summary', action='store_true',
                         help='Print detailed experiment summary')
+    parser.add_argument('--filter-dominated', action='store_true',
+                        help='Filter out Pareto dominated solutions (mark with x)')
     
     return parser.parse_args()
 
@@ -283,7 +376,7 @@ def main():
     try:
         # Create plotter and generate comparison
         print("Loading experiments for comparison...")
-        plotter = MultiExperimentPlotter(experiment_dirs)
+        plotter = MultiExperimentPlotter(experiment_dirs, filter_dominated=args.filter_dominated)
         
         if args.summary:
             plotter.print_experiment_summary()

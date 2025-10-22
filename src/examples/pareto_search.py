@@ -70,8 +70,10 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
     def define_obstacles(self) -> List[Obstacle]:
         """Define obstacles for the Pareto search demo"""
         return [
-            Obstacle(center=np.array([0.45, 0.08, 0.2]), radius=0.04, safe_distance=0.04),
-            Obstacle(center=np.array([0.45, -0.2, 0.2]), radius=0.04, safe_distance=0.04),
+            # Obstacle(center=np.array([0.45, 0.08, 0.2]), radius=0.04, safe_distance=0.04),
+            # Obstacle(center=np.array([0.45, -0.2, 0.2]), radius=0.04, safe_distance=0.04),
+            Obstacle(center=np.array([0.35, 0.06, 0.2]), radius=0.04, safe_distance=0.04),
+            # Obstacle(center=np.array([0.35, -0.2, 0.2]), radius=0.04, safe_distance=0.04),
             # Obstacle(center=np.array([-0.65, 0.05, 0.529]), radius=0.04, safe_distance=0.04),
             # Obstacle(center=np.array([-0.65, -0.3, 0.529]), radius=0.04, safe_distance=0.04),
             # Obstacle(center=np.array([-0.55, 0.05, 0.629]), radius=0.05, safe_distance=0.05),
@@ -85,7 +87,8 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
     def define_target_position(self) -> np.ndarray:
         """Define target position for the Pareto search demo"""
         # return np.array([-0.7, -0.04, 0.529])
-        return np.array([0.65, 0.03, 0.2])
+        return np.array([0.65, 0.00, 0.2])
+        # return np.array([0.65, 0.03, 0.2])
     
     def define_start_config(self) -> np.ndarray:
         """Define start configuration for the Pareto search demo"""
@@ -107,7 +110,7 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
         """Create constrained trajectory optimization planner"""
         return ConstrainedTrajOptPlanner(
             model, data, 
-            n_waypoints=50,
+            n_waypoints=25,  # Reduced for faster iteration
             dt=0.1,
             max_velocity=1.0,
             max_acceleration=0.7,
@@ -172,7 +175,8 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
         print(f"Experiment directory created: {self.experiment_dir}")
     
     def _save_trajectory(self, trajectory: List[np.ndarray], alpha: float, 
-                        length_cost: float, obstacle_cost: float, color: np.ndarray):
+                        length_cost: float, obstacle_cost: float, color: np.ndarray,
+                        optimization_metadata: dict = None):
         """Save a single trajectory with its metadata"""
         if not self.config.save_trajectories or self.experiment_dir is None:
             return
@@ -196,6 +200,10 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
             'timestamp': datetime.now().isoformat()
         }
         
+        # Add optimization metadata if provided
+        if optimization_metadata:
+            trajectory_data['optimization'] = optimization_metadata
+        
         # Save trajectory data
         with open(trajectory_path, 'wb') as f:
             pickle.dump(trajectory_data, f)
@@ -212,6 +220,13 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
             'waypoint_count': len(trajectory),
             'color': color.tolist()
         }
+        
+        # Add optimization info to metadata
+        if optimization_metadata:
+            metadata_entry['iterations'] = optimization_metadata.get('iterations', 0)
+            metadata_entry['final_optimization_cost'] = optimization_metadata.get('final_optimization_cost', 0.0)
+            metadata_entry['cost_mode'] = optimization_metadata.get('cost_mode', self.config.cost_mode)
+        
         self.trajectory_metadata.append(metadata_entry)
         
         print(f"Saved trajectory for α={alpha:.3f} to {trajectory_path}")
@@ -233,26 +248,27 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
         planner = self.create_planner(model, data)
         
         try:
-            planner.enable_fixed_z_constraint(
-            kinematics_solver=kinematics,
-            target_z=self.define_target_position()[2],
-            tol=0.05  # meters; tighten/loosen as needed
-)
+            # planner.enable_fixed_z_constraint(
+            #     kinematics_solver=kinematics,
+            #     target_z=self.define_target_position()[2],
+            #     tol=0.05  # meters; tighten/loosen as needed
+            # )
             
             # Create individual cost functions
             length_cost = TrajectoryLengthCostFunction(
                 kinematics_solver=kinematics,
                 weight=1.0,
-                normalization_bounds=(1.0, 2.0)
+                normalization_bounds=(0.0, 1.0)
             )
 
             safety_cost = ObstacleAvoidanceCostFunction(
                 kinematics_solver=kinematics,
                 obstacles=self.obstacles,
-                weight=4.0,
-                normalization_bounds=(0.0, 0.5),
-                decay_rate=5.0,
-                aggregate="sum"
+                weight=1.0,
+                normalization_bounds=(0.0, 1.0),
+                decay_rate=15.0,
+                bias=-0.08,
+                aggregate="avg"
             )
 
             # z_constraint = FixedZCostFunction(
@@ -273,7 +289,7 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
             )
 
             # Plan trajectory
-            trajectory, success = planner.plan(self.start_config, goal_config)
+            trajectory, success, optimization_metadata = planner.plan(self.start_config, goal_config)
             
             if success:
                 self.add_trajectory(trajectory, color)
@@ -287,8 +303,8 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
 
                 self.results.append((f_length, f_obstacle, alpha))
                 
-                # Save trajectory if enabled
-                self._save_trajectory(trajectory, alpha, f_length, f_obstacle, color)
+                # Save trajectory if enabled (with optimization metadata)
+                self._save_trajectory(trajectory, alpha, f_length, f_obstacle, color, optimization_metadata)
     
                 print(f"α={alpha:.1f}: Success")
                 return trajectory
@@ -352,8 +368,7 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
         self.run_pareto_search(model, data, kinematics)
         
         # Plot trade-off between length and obstacle cost
-        self.save_results_to_csv(output_dir=args.output_dir, filename=args.csv_file)
-
+        self.save_results_to_csv()  # Use default output_dir and filename
 
         # Visualize all trajectories
         if self.trajectories:
@@ -366,7 +381,7 @@ def parse_arguments():
     """Parse command line arguments for cost mode and search parameters"""
     parser = argparse.ArgumentParser(description='Linear Weight Search for Trajectory Optimization Pareto Analysis')
     
-    parser.add_argument('--cost-mode', choices=['sum', 'max'], default='sum',
+    parser.add_argument('--cost-mode', choices=['sum', 'max', 'max_constrained'], default='sum',
                        help='Cost function formulation (default: sum)')
     parser.add_argument('--rho', type=float, default=0.01,
                        help='Tie-breaking parameter for max mode (default: 0.01)')

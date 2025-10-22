@@ -146,8 +146,8 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
             safety_cost = ObstacleAvoidanceCostFunction(
                 kinematics_solver=kinematics,
                 obstacles=self.obstacles,
-                weight=4.0,
-                normalization_bounds=(0.0, 0.8),
+                weight=1.0,
+                normalization_bounds=(0.0, 1.0),
                 decay_rate=5.0
             )
 
@@ -234,7 +234,7 @@ def parse_arguments():
     
     parser.add_argument('--cost-mode', choices=['sum', 'max'], default='sum',
                        help='Cost function formulation (default: sum)')
-    parser.add_argument('--rho', type=float, default=0.01,
+    parser.add_argument('--rho', type=float, default=1e-7,
                        help='Tie-breaking parameter for max mode (default: 0.01)')
     parser.add_argument('--alpha-start', type=float, default=0.0,
                        help='Start value for alpha parameter (default: 0.0)')

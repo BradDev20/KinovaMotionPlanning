@@ -166,12 +166,19 @@ class TrajectoryLengthCostFunction(CostFunction):
             # Compute distances between consecutive end-effector positions
             distances = np.linalg.norm(np.diff(ee_positions, axis=0), axis=1)
             total_length = np.sum(distances)
+
+            # Calculate the distance between the first and last waypoints
+            first_last_distance = np.linalg.norm(ee_positions[0] - ee_positions[-1])
             
         finally:
             self.kinematics_solver._restore_state()
 
-        # Normalize cost to be between 0 and 1
-        normalized_cost = total_length
+        # Normalize by first-to-last distance for scale invariance
+        # Cost is ratio of path length to straight-line distance
+        if first_last_distance > 1e-8:
+            normalized_cost = total_length / first_last_distance
+        else:
+            normalized_cost = total_length
         
         return float(self.weight * normalized_cost)
 
@@ -228,13 +235,19 @@ class TrajectoryLengthCostFunction(CostFunction):
                     # Chain rule: dL/dq_i = dL/dx_i * dx_i/dq_i
                     gradient[i] += -unit_vector @ jacobians[i]
                     gradient[i + 1] += unit_vector @ jacobians[i + 1]
+
+            first_last_distance = np.linalg.norm(ee_positions[0] - ee_positions[-1])
                     
         finally:
             self.kinematics_solver._restore_state()
 
-        # Apply normalization factor (consistent with cost normalization)
-        normalization_factor = 1.0 / (self.normalization_bounds[1] - self.normalization_bounds[0])
-        return gradient * self.weight * normalization_factor
+        # Scale gradient to match cost normalization: cost = weight * total_length / first_last_distance
+        # Apply moderate damping (0.2) for numerical stability during optimization
+        if first_last_distance > 1e-8:
+            return gradient * self.weight / first_last_distance * 0.2
+        else:
+            return gradient * self.weight * 0.2
+
 
 class ObstacleAvoidanceCostFunction(CostFunction):
     """Cost for avoiding spherical obstacles in Cartesian space, with configurable aggregation."""
@@ -245,7 +258,10 @@ class ObstacleAvoidanceCostFunction(CostFunction):
                  weight: float = 1.0,
                  normalization_bounds: Tuple[float, float] = (0.0, 1.0),
                  decay_rate: float = 5.0,
-                 aggregate: str = "min"):  # "min" | "sum" | "avg"
+                 aggregate: str = "min",
+                 bias: float = 0.0,
+                 collision_penalty: float = 1.0,
+                 ):  # "min" | "sum" | "avg"
         """
         Args:
             kinematics_solver: FK provider
@@ -254,6 +270,7 @@ class ObstacleAvoidanceCostFunction(CostFunction):
             normalization_bounds: (low, high) for post-aggregation normalization
             decay_rate: alpha in exp(-alpha * distance_to_surface)
             aggregate: how to combine waypoint penalties: "min", "sum", or "avg"
+            bias: bias term to shift the exponential decay along x
         """
         super().__init__(weight)
         assert aggregate in ("min", "sum", "avg"), "aggregate must be 'min' | 'sum' | 'avg'"
@@ -262,16 +279,19 @@ class ObstacleAvoidanceCostFunction(CostFunction):
         self.normalization_bounds = normalization_bounds
         self.decay_rate = decay_rate
         self.aggregate = aggregate
+        self.bias = bias
+        self.collision_penalty = collision_penalty
 
     # ---------- internals ----------
     def _waypoint_cost_from_surface_dist(self, d_surface: float) -> float:
         """Penalty for a single waypoint given distance to obstacle surface."""
         if d_surface <= 0.0:
             # inside obstacle: very large but smooth penalty
-            return 1000.0 * np.exp(-self.decay_rate * d_surface)
+            return self.collision_penalty * np.exp(-self.decay_rate * (d_surface + self.bias))
         else:
+            # print("d_surface", d_surface)
             # outside: decays with clearance (larger clearance -> smaller cost)
-            return float(np.exp(-self.decay_rate * d_surface))
+            return float(np.exp(-self.decay_rate * (d_surface + self.bias)))
 
     def _closest_surface_distance(self, ee_pos: np.ndarray) -> float:
         """Return min distance-to-surface over all obstacles for a given EE position."""
@@ -286,24 +306,30 @@ class ObstacleAvoidanceCostFunction(CostFunction):
         self.kinematics_solver._backup_state()
         try:
             wp_costs = []
+            surface_distances = []
             for q in trajectory:
                 ee, _ = self.kinematics_solver.forward_kinematics(q)
                 d_surface = self._closest_surface_distance(ee)
+                surface_distances.append(d_surface)
                 wp_costs.append(self._waypoint_cost_from_surface_dist(d_surface))
+            # print("min surface distance", min(surface_distances))
+            # print("max surface distance", max(surface_distances))
         finally:
             self.kinematics_solver._restore_state()
 
         if self.aggregate == "min":
             agg_cost = float(min(wp_costs))
+            normalized_cost = agg_cost
         elif self.aggregate == "sum":
             agg_cost = float(np.sum(wp_costs) * dt)  # time-weighted integral
+            normalized_cost = agg_cost
         else:  # "avg"
             agg_cost = float(np.mean(wp_costs))
+            normalized_cost = agg_cost
+            # print("normalized cost", normalized_cost)
 
         # normalize and apply this CF's weight
-        lo, hi = self.normalization_bounds
-        norm = (agg_cost - lo) / (hi - lo)
-        return float(self.weight * norm)
+        return float(self.weight * normalized_cost) # 50 is the number of waypoints, will need to change if the trajectory changes 
 
     # ---------- gradient ----------
     def compute_gradient(self, trajectory: np.ndarray, dt: float = 0.1) -> np.ndarray:
@@ -350,15 +376,15 @@ class ObstacleAvoidanceCostFunction(CostFunction):
 
             # d(cost_wp)/d(d_surface)
             if d_surface <= 0.0:
-                dcost_dd = -1000.0 * self.decay_rate * np.exp(-self.decay_rate * d_surface)
+                dcost_dd = -self.collision_penalty * self.decay_rate * np.exp(-self.decay_rate * (d_surface + self.bias))
             else:
-                dcost_dd = -self.decay_rate * np.exp(-self.decay_rate * d_surface)
+                dcost_dd = -self.decay_rate * np.exp(-self.decay_rate * (d_surface + self.bias))
 
             # d(d_surface)/d(ee) = (ee - center)/||ee - center|| = unit vector away from center
             unit = (ee - obs.center) / dc
             dcost_dee = dcost_dd * unit  # shape (3,)
 
-            # Jacobian d(ee)/d(q) via finite-diff (keep your analytic FK if you have it)
+            # Jacobian d(ee)/d(q) via finite-diff
             q = trajectory[i]
             J = np.zeros((3, n_j))
             self.kinematics_solver._backup_state()
@@ -372,10 +398,9 @@ class ObstacleAvoidanceCostFunction(CostFunction):
 
             grad[i] += wp_weight * (J.T @ dcost_dee)
 
-        # apply normalization factor and this CF's weight
-        lo, hi = self.normalization_bounds
-        norm_factor = 1.0 / (hi - lo)
-        return grad * self.weight * norm_factor
+        # Apply weight with light damping - obstacle avoidance needs strong gradients
+        # to escape local minima where trajectory goes through obstacles
+        return grad * self.weight * 0.5
 
     # ---------- utils ----------
     def add_obstacle(self, obstacle: Obstacle):
@@ -463,7 +488,8 @@ class CompositeCostFunction(CostFunction):
         Args:
             cost_functions: List of individual cost functions
             weights: Corresponding weights for each cost function
-            mode: 'sum' for linear combination, 'max' for weighted maximum with tie-breaking
+            mode: 'sum' for linear combination, 'max' for weighted maximum with tie-breaking,
+                  'max_constrained' for epigraph reformulation (max moved to constraints)
             rho: Tie-breaking parameter for max mode (should be small, e.g., 0.001-0.1)
             epsilon_tie: Threshold for detecting ties in max mode
         """
@@ -472,11 +498,11 @@ class CompositeCostFunction(CostFunction):
         if len(cost_functions) != len(weights):
             raise ValueError("Number of cost functions must match number of weights")
         
-        if mode not in ['sum', 'max']:
-            raise ValueError("Mode must be 'sum' or 'max'")
+        if mode not in ['sum', 'max', 'max_constrained']:
+            raise ValueError("Mode must be 'sum', 'max', or 'max_constrained'")
             
-        if mode == 'max' and not (0.001 <= rho <= 0.1):
-            print(f"Warning: rho={rho} is outside recommended range [0.001, 0.1] for max mode")
+        # if mode == 'max' and not (0.001 <= rho <= 0.1):
+        #     print(f"Warning: rho={rho} is outside recommended range [0.001, 0.1] for max mode")
         
         self.cost_functions = cost_functions
         
@@ -492,13 +518,15 @@ class CompositeCostFunction(CostFunction):
         self.rho = rho
         self.epsilon_tie = epsilon_tie
         
-        print(f"  📊 Composite cost function initialized:")
+        print(f"Composite cost function initialized:")
         print(f"     Mode: {mode.upper()}")
         print(f"     Functions: {len(cost_functions)}")
         print(f"     Original weights: {[f'{w:.1f}' for w in self.original_weights]}")
         print(f"     Normalized weights: {[f'{w:.3f}' for w in self.weights]} (sum={np.sum(self.weights):.3f})")
-        if mode == 'max':
+        if mode in ['max', 'max_constrained']:
             print(f"     Tie-breaking parameter ρ: {rho}")
+        if mode == 'max_constrained':
+            print(f"     Using epigraph reformulation: max moved to constraints")
     
     def compute_cost(self, trajectory: np.ndarray, dt: float = 0.1) -> float:
         """Compute composite cost using specified mode."""
@@ -521,8 +549,15 @@ class CompositeCostFunction(CostFunction):
             sum_term = self.rho * np.sum(individual_costs)
             return float(max_term + sum_term)
         
+        elif self.mode == 'max_constrained':
+            # Epigraph reformulation: cost = ρ * Σ(f_i)
+            # The 't' term (auxiliary variable for max) is handled by the planner
+            # Constraints w_i * f_i(T) ≤ t are also handled by the planner
+            sum_term = self.rho * np.sum(individual_costs)
+            return float(sum_term)
+        
         else:
-            raise ValueError(f"Invalid mode: {self.mode}. Must be 'sum' or 'max'.")
+            raise ValueError(f"Invalid mode: {self.mode}. Must be 'sum', 'max', or 'max_constrained'.")
     
     def compute_gradient(self, trajectory: np.ndarray, dt: float = 0.1) -> np.ndarray:
         """Compute composite gradient using specified mode."""
@@ -569,8 +604,45 @@ class CompositeCostFunction(CostFunction):
             
             return max_gradient + sum_gradient
         
+        elif self.mode == 'max_constrained':
+            # Epigraph reformulation gradient: ∇cost = ρ * Σ(∇f_i)
+            # The gradient w.r.t. 't' is 1 (handled by the planner)
+            sum_gradient = np.zeros_like(trajectory)
+            for grad in individual_gradients:
+                sum_gradient += grad
+            sum_gradient *= self.rho
+            
+            return sum_gradient
+        
         else:
-            raise ValueError(f"Invalid mode: {self.mode}. Must be 'sum' or 'max'.")
+            raise ValueError(f"Invalid mode: {self.mode}. Must be 'sum', 'max', or 'max_constrained'.")
+    
+    def compute_weighted_individual_costs(self, trajectory: np.ndarray, dt: float = 0.1) -> np.ndarray:
+        """
+        Compute weighted individual costs w_i * f_i(T) for each cost function.
+        Used for epigraph reformulation constraints in max_constrained mode.
+        
+        Returns:
+            Array of shape (n_cost_functions,) containing w_i * f_i(T) for each i
+        """
+        individual_costs = np.array([
+            cf.compute_cost(trajectory, dt) for cf in self.cost_functions
+        ])
+        return self.weights * individual_costs
+    
+    def compute_individual_cost_gradients(self, trajectory: np.ndarray, dt: float = 0.1) -> List[np.ndarray]:
+        """
+        Compute gradients of weighted individual costs w_i * ∇f_i(T) for each cost function.
+        Used for epigraph reformulation constraint gradients in max_constrained mode.
+        
+        Returns:
+            List of gradients, each of shape (n_waypoints, n_dof)
+        """
+        gradients = []
+        for i, cf in enumerate(self.cost_functions):
+            grad = cf.compute_gradient(trajectory, dt)
+            gradients.append(self.weights[i] * grad)
+        return gradients
     
     def get_mode_info(self) -> str:
         """Get formatted information about the current mode and configuration."""
@@ -581,7 +653,7 @@ class CompositeCostFunction(CostFunction):
             f"  Normalized weights: {[f'{w:.3f}' for w in self.weights]} (sum={np.sum(self.weights):.3f})"
         ]
         
-        if self.mode == 'max':
+        if self.mode in ['max', 'max_constrained']:
             info.extend([
                 f"  Tie-breaking ρ: {self.rho}",
                 f"  Tie threshold: {self.epsilon_tie}"
@@ -597,17 +669,19 @@ class CompositeCostFunction(CostFunction):
             new_mode: 'sum' or 'max'
             rho: New tie-breaking parameter (only used if switching to max mode)
         """
-        if new_mode not in ['sum', 'max']:
-            raise ValueError("Mode must be 'sum' or 'max'")
+        if new_mode not in ['sum', 'max', 'max_constrained']:
+            raise ValueError("Mode must be 'sum', 'max', or 'max_constrained'")
         
         old_mode = self.mode
         self.mode = new_mode
         
         if new_mode == 'max' and rho is not None:
             self.rho = rho
+        elif new_mode == 'max_constrained' and rho is not None:
+            self.rho = rho # For max_constrained, rho is the regularization parameter
         
         print(f"  🔄 Switched cost mode: {old_mode.upper()} → {new_mode.upper()}")
-        if new_mode == 'max':
+        if new_mode in ['max', 'max_constrained']:
             print(f"     Tie-breaking ρ: {self.rho}")
 
 
