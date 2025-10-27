@@ -2,6 +2,7 @@ import numpy as np
 import mujoco
 from typing import List, Tuple, Callable, Optional, Dict, Any
 from .cost_functions import CostFunction, CompositeCostFunction
+from .utils import PerformanceTimer
 from scipy.optimize import minimize
 import time
 
@@ -56,6 +57,9 @@ class UnconstrainedTrajOptPlanner:
         self.iteration_count = 0
         self.last_cost = float('inf')
         self.last_iteration_time = time.time()
+        
+        # Performance timing
+        self.timer = PerformanceTimer()
 
     def add_cost_function(self, cost_fn: CostFunction):
         """Add a cost function to the optimization (legacy mode only)"""

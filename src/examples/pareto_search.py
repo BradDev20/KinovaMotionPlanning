@@ -24,9 +24,14 @@ try:
 except ImportError:
     HAS_MATPLOTLIB = False
 
+USE_FAST_PLANNER = True  # Use optimized fast planner (recommended)
+SPLINE_BASED = False  # Use B-spline planner (experimental, slower)
+
 # Add the src directory to the Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
+from motion_planning.fast_trajopt import FastTrajOptPlanner
+from motion_planning.bspline_trajopt import SplineBasedTrajOptPlanner
 from motion_planning.constrained_trajopt import ConstrainedTrajOptPlanner
 from motion_planning.utils import Obstacle, PillarObstacle
 from motion_planning.cost_functions import (
@@ -71,7 +76,7 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
         """Define obstacles for the Pareto search demo"""
         return [
             # Obstacle(center=np.array([0.45, 0.08, 0.2]), radius=0.04, safe_distance=0.04),
-            # Obstacle(center=np.array([0.45, -0.2, 0.2]), radius=0.04, safe_distance=0.04),
+            Obstacle(center=np.array([0.45, -0.2, 0.2]), radius=0.04, safe_distance=0.04),
             Obstacle(center=np.array([0.35, 0.06, 0.2]), radius=0.04, safe_distance=0.04),
             # Obstacle(center=np.array([0.35, -0.2, 0.2]), radius=0.04, safe_distance=0.04),
             # Obstacle(center=np.array([-0.65, 0.05, 0.529]), radius=0.04, safe_distance=0.04),
@@ -108,7 +113,28 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
 
     def create_planner(self, model, data):
         """Create constrained trajectory optimization planner"""
-        return ConstrainedTrajOptPlanner(
+        if USE_FAST_PLANNER:
+            return FastTrajOptPlanner(
+                model, data,
+                n_waypoints=25,  # Optimized: fewer waypoints
+                dt=0.1,
+                max_velocity=1.3,  # Optimized: looser constraints
+                max_acceleration=0.7,
+                cost_mode='composite',
+                cost_sample_rate=2,  # Optimized: sample every 2nd waypoint
+                use_global_fk_cache=True  # Optimized: share FK cache across all alpha values
+            )
+        elif SPLINE_BASED:
+            return SplineBasedTrajOptPlanner(
+                model, data, 
+                n_waypoints=12,
+                dt=0.1,
+                max_velocity=1.0,
+                max_acceleration=0.7,
+                cost_mode='composite'
+            )
+        else:
+            return ConstrainedTrajOptPlanner(
             model, data, 
             n_waypoints=25,  # Reduced for faster iteration
             dt=0.1,
@@ -305,6 +331,11 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
                 
                 # Save trajectory if enabled (with optimization metadata)
                 self._save_trajectory(trajectory, alpha, f_length, f_obstacle, color, optimization_metadata)
+                
+                # Optionally print timing summary for first trajectory
+                if len(self.results) == 1 and 'timing' in optimization_metadata:
+                    print(f"\nTiming breakdown for first trajectory (α={alpha:.1f}):")
+                    planner.print_timing_summary(optimization_metadata['timing'])
     
                 print(f"α={alpha:.1f}: Success")
                 return trajectory
@@ -318,9 +349,16 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
     
     def run_pareto_search(self, model, data, kinematics):
         """Run the complete Pareto search"""
+        from motion_planning.fast_trajopt import CachedKinematicsSolver
+        
         print(f"Starting Linear Weight Search")
         print(f"Cost formulation: {self.config.cost_mode.upper()}")
         print(f"Alpha range: [{self.config.alpha_start:.1f}, {self.config.alpha_end:.1f}] step {self.config.alpha_step:.1f}")
+        
+        # Clear global FK cache at the start of a new search
+        if USE_FAST_PLANNER:
+            CachedKinematicsSolver.clear_global_cache()
+            print("  Global FK cache cleared for fresh Pareto search")
         
         successful_count = 0
         
@@ -330,7 +368,20 @@ class ParetoSearchDemo(MultiTrajectoryDemo):
             if trajectory is not None:
                 successful_count += 1
         
-        print(f"Search complete: {successful_count}/{len(self.alpha_values)} successful trajectories")
+        print(f"\nSearch complete: {successful_count}/{len(self.alpha_values)} successful trajectories")
+        
+        # Print final global FK cache statistics
+        if USE_FAST_PLANNER:
+            global_stats = CachedKinematicsSolver.get_global_cache_stats()
+            print(f"\n=== Global FK Cache Summary (All Optimizations) ===")
+            print(f"  Total hits: {global_stats['hits']:,}")
+            print(f"  Total misses: {global_stats['misses']:,}")
+            print(f"  Overall hit rate: {global_stats['hit_rate']*100:.1f}%")
+            print(f"  Final cache size: {global_stats['cache_size']} entries")
+            total = global_stats['hits'] + global_stats['misses']
+            if total > 0:
+                saved = global_stats['hits']
+                print(f"  Total FK calls saved: {saved:,} ({saved/total*100:.1f}% reduction)")
         
         # Save trajectory metadata if trajectories were saved
         if self.config.save_trajectories and self.experiment_dir is not None:

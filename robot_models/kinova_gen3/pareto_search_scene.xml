@@ -21,10 +21,17 @@
     <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
   
     <!-- Virtual obstacle 1 visualization -->
-    <body name="obstacle_1" pos="0.350 0.060 0.200">
+    <body name="obstacle_1" pos="0.450 -0.200 0.200">
         <geom name="obstacle_1_geom" type="sphere" size="0.04" 
               rgba="1.0 0.2 0.2 0.6" material="" contype="0" conaffinity="0"/>
         <site name="obstacle_1_center" pos="0 0 0" size="0.005" rgba="1 0 0 1"/>
+    </body>
+    
+    <!-- Virtual obstacle 2 visualization -->
+    <body name="obstacle_2" pos="0.350 0.060 0.200">
+        <geom name="obstacle_2_geom" type="sphere" size="0.04" 
+              rgba="1.0 0.2 0.2 0.6" material="" contype="0" conaffinity="0"/>
+        <site name="obstacle_2_center" pos="0 0 0" size="0.005" rgba="1 0 0 1"/>
     </body>
     
     <!-- Target position marker -->
@@ -1993,6 +2000,2086 @@
     </body>
     <body name="trace_dot_489" pos="0 0 -10">
         <geom name="trace_dot_489_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_490" pos="0 0 -10">
+        <geom name="trace_dot_490_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_491" pos="0 0 -10">
+        <geom name="trace_dot_491_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_492" pos="0 0 -10">
+        <geom name="trace_dot_492_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_493" pos="0 0 -10">
+        <geom name="trace_dot_493_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_494" pos="0 0 -10">
+        <geom name="trace_dot_494_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_495" pos="0 0 -10">
+        <geom name="trace_dot_495_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_496" pos="0 0 -10">
+        <geom name="trace_dot_496_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_497" pos="0 0 -10">
+        <geom name="trace_dot_497_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_498" pos="0 0 -10">
+        <geom name="trace_dot_498_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_499" pos="0 0 -10">
+        <geom name="trace_dot_499_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_500" pos="0 0 -10">
+        <geom name="trace_dot_500_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_501" pos="0 0 -10">
+        <geom name="trace_dot_501_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_502" pos="0 0 -10">
+        <geom name="trace_dot_502_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_503" pos="0 0 -10">
+        <geom name="trace_dot_503_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_504" pos="0 0 -10">
+        <geom name="trace_dot_504_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_505" pos="0 0 -10">
+        <geom name="trace_dot_505_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_506" pos="0 0 -10">
+        <geom name="trace_dot_506_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_507" pos="0 0 -10">
+        <geom name="trace_dot_507_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_508" pos="0 0 -10">
+        <geom name="trace_dot_508_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_509" pos="0 0 -10">
+        <geom name="trace_dot_509_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_510" pos="0 0 -10">
+        <geom name="trace_dot_510_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_511" pos="0 0 -10">
+        <geom name="trace_dot_511_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_512" pos="0 0 -10">
+        <geom name="trace_dot_512_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_513" pos="0 0 -10">
+        <geom name="trace_dot_513_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_514" pos="0 0 -10">
+        <geom name="trace_dot_514_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_515" pos="0 0 -10">
+        <geom name="trace_dot_515_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_516" pos="0 0 -10">
+        <geom name="trace_dot_516_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_517" pos="0 0 -10">
+        <geom name="trace_dot_517_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_518" pos="0 0 -10">
+        <geom name="trace_dot_518_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_519" pos="0 0 -10">
+        <geom name="trace_dot_519_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_520" pos="0 0 -10">
+        <geom name="trace_dot_520_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_521" pos="0 0 -10">
+        <geom name="trace_dot_521_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_522" pos="0 0 -10">
+        <geom name="trace_dot_522_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_523" pos="0 0 -10">
+        <geom name="trace_dot_523_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_524" pos="0 0 -10">
+        <geom name="trace_dot_524_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_525" pos="0 0 -10">
+        <geom name="trace_dot_525_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_526" pos="0 0 -10">
+        <geom name="trace_dot_526_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_527" pos="0 0 -10">
+        <geom name="trace_dot_527_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_528" pos="0 0 -10">
+        <geom name="trace_dot_528_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_529" pos="0 0 -10">
+        <geom name="trace_dot_529_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_530" pos="0 0 -10">
+        <geom name="trace_dot_530_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_531" pos="0 0 -10">
+        <geom name="trace_dot_531_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_532" pos="0 0 -10">
+        <geom name="trace_dot_532_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_533" pos="0 0 -10">
+        <geom name="trace_dot_533_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_534" pos="0 0 -10">
+        <geom name="trace_dot_534_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_535" pos="0 0 -10">
+        <geom name="trace_dot_535_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_536" pos="0 0 -10">
+        <geom name="trace_dot_536_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_537" pos="0 0 -10">
+        <geom name="trace_dot_537_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_538" pos="0 0 -10">
+        <geom name="trace_dot_538_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_539" pos="0 0 -10">
+        <geom name="trace_dot_539_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_540" pos="0 0 -10">
+        <geom name="trace_dot_540_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_541" pos="0 0 -10">
+        <geom name="trace_dot_541_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_542" pos="0 0 -10">
+        <geom name="trace_dot_542_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_543" pos="0 0 -10">
+        <geom name="trace_dot_543_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_544" pos="0 0 -10">
+        <geom name="trace_dot_544_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_545" pos="0 0 -10">
+        <geom name="trace_dot_545_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_546" pos="0 0 -10">
+        <geom name="trace_dot_546_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_547" pos="0 0 -10">
+        <geom name="trace_dot_547_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_548" pos="0 0 -10">
+        <geom name="trace_dot_548_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_549" pos="0 0 -10">
+        <geom name="trace_dot_549_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_550" pos="0 0 -10">
+        <geom name="trace_dot_550_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_551" pos="0 0 -10">
+        <geom name="trace_dot_551_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_552" pos="0 0 -10">
+        <geom name="trace_dot_552_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_553" pos="0 0 -10">
+        <geom name="trace_dot_553_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_554" pos="0 0 -10">
+        <geom name="trace_dot_554_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_555" pos="0 0 -10">
+        <geom name="trace_dot_555_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_556" pos="0 0 -10">
+        <geom name="trace_dot_556_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_557" pos="0 0 -10">
+        <geom name="trace_dot_557_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_558" pos="0 0 -10">
+        <geom name="trace_dot_558_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_559" pos="0 0 -10">
+        <geom name="trace_dot_559_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_560" pos="0 0 -10">
+        <geom name="trace_dot_560_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_561" pos="0 0 -10">
+        <geom name="trace_dot_561_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_562" pos="0 0 -10">
+        <geom name="trace_dot_562_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_563" pos="0 0 -10">
+        <geom name="trace_dot_563_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_564" pos="0 0 -10">
+        <geom name="trace_dot_564_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_565" pos="0 0 -10">
+        <geom name="trace_dot_565_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_566" pos="0 0 -10">
+        <geom name="trace_dot_566_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_567" pos="0 0 -10">
+        <geom name="trace_dot_567_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_568" pos="0 0 -10">
+        <geom name="trace_dot_568_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_569" pos="0 0 -10">
+        <geom name="trace_dot_569_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_570" pos="0 0 -10">
+        <geom name="trace_dot_570_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_571" pos="0 0 -10">
+        <geom name="trace_dot_571_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_572" pos="0 0 -10">
+        <geom name="trace_dot_572_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_573" pos="0 0 -10">
+        <geom name="trace_dot_573_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_574" pos="0 0 -10">
+        <geom name="trace_dot_574_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_575" pos="0 0 -10">
+        <geom name="trace_dot_575_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_576" pos="0 0 -10">
+        <geom name="trace_dot_576_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_577" pos="0 0 -10">
+        <geom name="trace_dot_577_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_578" pos="0 0 -10">
+        <geom name="trace_dot_578_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_579" pos="0 0 -10">
+        <geom name="trace_dot_579_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_580" pos="0 0 -10">
+        <geom name="trace_dot_580_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_581" pos="0 0 -10">
+        <geom name="trace_dot_581_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_582" pos="0 0 -10">
+        <geom name="trace_dot_582_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_583" pos="0 0 -10">
+        <geom name="trace_dot_583_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_584" pos="0 0 -10">
+        <geom name="trace_dot_584_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_585" pos="0 0 -10">
+        <geom name="trace_dot_585_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_586" pos="0 0 -10">
+        <geom name="trace_dot_586_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_587" pos="0 0 -10">
+        <geom name="trace_dot_587_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_588" pos="0 0 -10">
+        <geom name="trace_dot_588_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_589" pos="0 0 -10">
+        <geom name="trace_dot_589_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_590" pos="0 0 -10">
+        <geom name="trace_dot_590_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_591" pos="0 0 -10">
+        <geom name="trace_dot_591_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_592" pos="0 0 -10">
+        <geom name="trace_dot_592_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_593" pos="0 0 -10">
+        <geom name="trace_dot_593_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_594" pos="0 0 -10">
+        <geom name="trace_dot_594_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_595" pos="0 0 -10">
+        <geom name="trace_dot_595_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_596" pos="0 0 -10">
+        <geom name="trace_dot_596_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_597" pos="0 0 -10">
+        <geom name="trace_dot_597_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_598" pos="0 0 -10">
+        <geom name="trace_dot_598_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_599" pos="0 0 -10">
+        <geom name="trace_dot_599_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_600" pos="0 0 -10">
+        <geom name="trace_dot_600_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_601" pos="0 0 -10">
+        <geom name="trace_dot_601_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_602" pos="0 0 -10">
+        <geom name="trace_dot_602_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_603" pos="0 0 -10">
+        <geom name="trace_dot_603_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_604" pos="0 0 -10">
+        <geom name="trace_dot_604_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_605" pos="0 0 -10">
+        <geom name="trace_dot_605_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_606" pos="0 0 -10">
+        <geom name="trace_dot_606_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_607" pos="0 0 -10">
+        <geom name="trace_dot_607_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_608" pos="0 0 -10">
+        <geom name="trace_dot_608_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_609" pos="0 0 -10">
+        <geom name="trace_dot_609_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_610" pos="0 0 -10">
+        <geom name="trace_dot_610_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_611" pos="0 0 -10">
+        <geom name="trace_dot_611_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_612" pos="0 0 -10">
+        <geom name="trace_dot_612_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_613" pos="0 0 -10">
+        <geom name="trace_dot_613_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_614" pos="0 0 -10">
+        <geom name="trace_dot_614_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_615" pos="0 0 -10">
+        <geom name="trace_dot_615_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_616" pos="0 0 -10">
+        <geom name="trace_dot_616_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_617" pos="0 0 -10">
+        <geom name="trace_dot_617_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_618" pos="0 0 -10">
+        <geom name="trace_dot_618_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_619" pos="0 0 -10">
+        <geom name="trace_dot_619_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_620" pos="0 0 -10">
+        <geom name="trace_dot_620_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_621" pos="0 0 -10">
+        <geom name="trace_dot_621_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_622" pos="0 0 -10">
+        <geom name="trace_dot_622_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_623" pos="0 0 -10">
+        <geom name="trace_dot_623_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_624" pos="0 0 -10">
+        <geom name="trace_dot_624_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_625" pos="0 0 -10">
+        <geom name="trace_dot_625_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_626" pos="0 0 -10">
+        <geom name="trace_dot_626_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_627" pos="0 0 -10">
+        <geom name="trace_dot_627_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_628" pos="0 0 -10">
+        <geom name="trace_dot_628_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_629" pos="0 0 -10">
+        <geom name="trace_dot_629_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_630" pos="0 0 -10">
+        <geom name="trace_dot_630_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_631" pos="0 0 -10">
+        <geom name="trace_dot_631_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_632" pos="0 0 -10">
+        <geom name="trace_dot_632_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_633" pos="0 0 -10">
+        <geom name="trace_dot_633_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_634" pos="0 0 -10">
+        <geom name="trace_dot_634_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_635" pos="0 0 -10">
+        <geom name="trace_dot_635_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_636" pos="0 0 -10">
+        <geom name="trace_dot_636_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_637" pos="0 0 -10">
+        <geom name="trace_dot_637_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_638" pos="0 0 -10">
+        <geom name="trace_dot_638_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_639" pos="0 0 -10">
+        <geom name="trace_dot_639_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_640" pos="0 0 -10">
+        <geom name="trace_dot_640_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_641" pos="0 0 -10">
+        <geom name="trace_dot_641_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_642" pos="0 0 -10">
+        <geom name="trace_dot_642_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_643" pos="0 0 -10">
+        <geom name="trace_dot_643_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_644" pos="0 0 -10">
+        <geom name="trace_dot_644_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_645" pos="0 0 -10">
+        <geom name="trace_dot_645_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_646" pos="0 0 -10">
+        <geom name="trace_dot_646_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_647" pos="0 0 -10">
+        <geom name="trace_dot_647_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_648" pos="0 0 -10">
+        <geom name="trace_dot_648_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_649" pos="0 0 -10">
+        <geom name="trace_dot_649_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_650" pos="0 0 -10">
+        <geom name="trace_dot_650_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_651" pos="0 0 -10">
+        <geom name="trace_dot_651_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_652" pos="0 0 -10">
+        <geom name="trace_dot_652_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_653" pos="0 0 -10">
+        <geom name="trace_dot_653_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_654" pos="0 0 -10">
+        <geom name="trace_dot_654_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_655" pos="0 0 -10">
+        <geom name="trace_dot_655_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_656" pos="0 0 -10">
+        <geom name="trace_dot_656_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_657" pos="0 0 -10">
+        <geom name="trace_dot_657_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_658" pos="0 0 -10">
+        <geom name="trace_dot_658_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_659" pos="0 0 -10">
+        <geom name="trace_dot_659_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_660" pos="0 0 -10">
+        <geom name="trace_dot_660_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_661" pos="0 0 -10">
+        <geom name="trace_dot_661_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_662" pos="0 0 -10">
+        <geom name="trace_dot_662_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_663" pos="0 0 -10">
+        <geom name="trace_dot_663_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_664" pos="0 0 -10">
+        <geom name="trace_dot_664_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_665" pos="0 0 -10">
+        <geom name="trace_dot_665_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_666" pos="0 0 -10">
+        <geom name="trace_dot_666_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_667" pos="0 0 -10">
+        <geom name="trace_dot_667_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_668" pos="0 0 -10">
+        <geom name="trace_dot_668_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_669" pos="0 0 -10">
+        <geom name="trace_dot_669_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_670" pos="0 0 -10">
+        <geom name="trace_dot_670_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_671" pos="0 0 -10">
+        <geom name="trace_dot_671_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_672" pos="0 0 -10">
+        <geom name="trace_dot_672_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_673" pos="0 0 -10">
+        <geom name="trace_dot_673_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_674" pos="0 0 -10">
+        <geom name="trace_dot_674_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_675" pos="0 0 -10">
+        <geom name="trace_dot_675_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_676" pos="0 0 -10">
+        <geom name="trace_dot_676_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_677" pos="0 0 -10">
+        <geom name="trace_dot_677_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_678" pos="0 0 -10">
+        <geom name="trace_dot_678_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_679" pos="0 0 -10">
+        <geom name="trace_dot_679_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_680" pos="0 0 -10">
+        <geom name="trace_dot_680_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_681" pos="0 0 -10">
+        <geom name="trace_dot_681_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_682" pos="0 0 -10">
+        <geom name="trace_dot_682_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_683" pos="0 0 -10">
+        <geom name="trace_dot_683_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_684" pos="0 0 -10">
+        <geom name="trace_dot_684_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_685" pos="0 0 -10">
+        <geom name="trace_dot_685_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_686" pos="0 0 -10">
+        <geom name="trace_dot_686_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_687" pos="0 0 -10">
+        <geom name="trace_dot_687_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_688" pos="0 0 -10">
+        <geom name="trace_dot_688_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_689" pos="0 0 -10">
+        <geom name="trace_dot_689_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_690" pos="0 0 -10">
+        <geom name="trace_dot_690_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_691" pos="0 0 -10">
+        <geom name="trace_dot_691_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_692" pos="0 0 -10">
+        <geom name="trace_dot_692_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_693" pos="0 0 -10">
+        <geom name="trace_dot_693_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_694" pos="0 0 -10">
+        <geom name="trace_dot_694_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_695" pos="0 0 -10">
+        <geom name="trace_dot_695_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_696" pos="0 0 -10">
+        <geom name="trace_dot_696_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_697" pos="0 0 -10">
+        <geom name="trace_dot_697_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_698" pos="0 0 -10">
+        <geom name="trace_dot_698_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_699" pos="0 0 -10">
+        <geom name="trace_dot_699_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_700" pos="0 0 -10">
+        <geom name="trace_dot_700_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_701" pos="0 0 -10">
+        <geom name="trace_dot_701_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_702" pos="0 0 -10">
+        <geom name="trace_dot_702_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_703" pos="0 0 -10">
+        <geom name="trace_dot_703_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_704" pos="0 0 -10">
+        <geom name="trace_dot_704_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_705" pos="0 0 -10">
+        <geom name="trace_dot_705_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_706" pos="0 0 -10">
+        <geom name="trace_dot_706_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_707" pos="0 0 -10">
+        <geom name="trace_dot_707_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_708" pos="0 0 -10">
+        <geom name="trace_dot_708_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_709" pos="0 0 -10">
+        <geom name="trace_dot_709_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_710" pos="0 0 -10">
+        <geom name="trace_dot_710_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_711" pos="0 0 -10">
+        <geom name="trace_dot_711_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_712" pos="0 0 -10">
+        <geom name="trace_dot_712_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_713" pos="0 0 -10">
+        <geom name="trace_dot_713_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_714" pos="0 0 -10">
+        <geom name="trace_dot_714_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_715" pos="0 0 -10">
+        <geom name="trace_dot_715_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_716" pos="0 0 -10">
+        <geom name="trace_dot_716_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_717" pos="0 0 -10">
+        <geom name="trace_dot_717_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_718" pos="0 0 -10">
+        <geom name="trace_dot_718_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_719" pos="0 0 -10">
+        <geom name="trace_dot_719_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_720" pos="0 0 -10">
+        <geom name="trace_dot_720_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_721" pos="0 0 -10">
+        <geom name="trace_dot_721_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_722" pos="0 0 -10">
+        <geom name="trace_dot_722_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_723" pos="0 0 -10">
+        <geom name="trace_dot_723_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_724" pos="0 0 -10">
+        <geom name="trace_dot_724_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_725" pos="0 0 -10">
+        <geom name="trace_dot_725_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_726" pos="0 0 -10">
+        <geom name="trace_dot_726_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_727" pos="0 0 -10">
+        <geom name="trace_dot_727_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_728" pos="0 0 -10">
+        <geom name="trace_dot_728_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_729" pos="0 0 -10">
+        <geom name="trace_dot_729_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_730" pos="0 0 -10">
+        <geom name="trace_dot_730_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_731" pos="0 0 -10">
+        <geom name="trace_dot_731_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_732" pos="0 0 -10">
+        <geom name="trace_dot_732_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_733" pos="0 0 -10">
+        <geom name="trace_dot_733_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_734" pos="0 0 -10">
+        <geom name="trace_dot_734_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_735" pos="0 0 -10">
+        <geom name="trace_dot_735_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_736" pos="0 0 -10">
+        <geom name="trace_dot_736_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_737" pos="0 0 -10">
+        <geom name="trace_dot_737_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_738" pos="0 0 -10">
+        <geom name="trace_dot_738_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_739" pos="0 0 -10">
+        <geom name="trace_dot_739_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_740" pos="0 0 -10">
+        <geom name="trace_dot_740_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_741" pos="0 0 -10">
+        <geom name="trace_dot_741_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_742" pos="0 0 -10">
+        <geom name="trace_dot_742_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_743" pos="0 0 -10">
+        <geom name="trace_dot_743_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_744" pos="0 0 -10">
+        <geom name="trace_dot_744_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_745" pos="0 0 -10">
+        <geom name="trace_dot_745_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_746" pos="0 0 -10">
+        <geom name="trace_dot_746_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_747" pos="0 0 -10">
+        <geom name="trace_dot_747_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_748" pos="0 0 -10">
+        <geom name="trace_dot_748_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_749" pos="0 0 -10">
+        <geom name="trace_dot_749_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_750" pos="0 0 -10">
+        <geom name="trace_dot_750_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_751" pos="0 0 -10">
+        <geom name="trace_dot_751_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_752" pos="0 0 -10">
+        <geom name="trace_dot_752_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_753" pos="0 0 -10">
+        <geom name="trace_dot_753_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_754" pos="0 0 -10">
+        <geom name="trace_dot_754_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_755" pos="0 0 -10">
+        <geom name="trace_dot_755_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_756" pos="0 0 -10">
+        <geom name="trace_dot_756_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_757" pos="0 0 -10">
+        <geom name="trace_dot_757_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_758" pos="0 0 -10">
+        <geom name="trace_dot_758_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_759" pos="0 0 -10">
+        <geom name="trace_dot_759_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_760" pos="0 0 -10">
+        <geom name="trace_dot_760_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_761" pos="0 0 -10">
+        <geom name="trace_dot_761_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_762" pos="0 0 -10">
+        <geom name="trace_dot_762_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_763" pos="0 0 -10">
+        <geom name="trace_dot_763_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_764" pos="0 0 -10">
+        <geom name="trace_dot_764_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_765" pos="0 0 -10">
+        <geom name="trace_dot_765_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_766" pos="0 0 -10">
+        <geom name="trace_dot_766_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_767" pos="0 0 -10">
+        <geom name="trace_dot_767_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_768" pos="0 0 -10">
+        <geom name="trace_dot_768_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_769" pos="0 0 -10">
+        <geom name="trace_dot_769_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_770" pos="0 0 -10">
+        <geom name="trace_dot_770_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_771" pos="0 0 -10">
+        <geom name="trace_dot_771_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_772" pos="0 0 -10">
+        <geom name="trace_dot_772_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_773" pos="0 0 -10">
+        <geom name="trace_dot_773_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_774" pos="0 0 -10">
+        <geom name="trace_dot_774_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_775" pos="0 0 -10">
+        <geom name="trace_dot_775_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_776" pos="0 0 -10">
+        <geom name="trace_dot_776_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_777" pos="0 0 -10">
+        <geom name="trace_dot_777_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_778" pos="0 0 -10">
+        <geom name="trace_dot_778_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_779" pos="0 0 -10">
+        <geom name="trace_dot_779_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_780" pos="0 0 -10">
+        <geom name="trace_dot_780_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_781" pos="0 0 -10">
+        <geom name="trace_dot_781_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_782" pos="0 0 -10">
+        <geom name="trace_dot_782_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_783" pos="0 0 -10">
+        <geom name="trace_dot_783_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_784" pos="0 0 -10">
+        <geom name="trace_dot_784_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_785" pos="0 0 -10">
+        <geom name="trace_dot_785_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_786" pos="0 0 -10">
+        <geom name="trace_dot_786_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_787" pos="0 0 -10">
+        <geom name="trace_dot_787_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_788" pos="0 0 -10">
+        <geom name="trace_dot_788_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_789" pos="0 0 -10">
+        <geom name="trace_dot_789_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_790" pos="0 0 -10">
+        <geom name="trace_dot_790_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_791" pos="0 0 -10">
+        <geom name="trace_dot_791_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_792" pos="0 0 -10">
+        <geom name="trace_dot_792_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_793" pos="0 0 -10">
+        <geom name="trace_dot_793_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_794" pos="0 0 -10">
+        <geom name="trace_dot_794_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_795" pos="0 0 -10">
+        <geom name="trace_dot_795_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_796" pos="0 0 -10">
+        <geom name="trace_dot_796_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_797" pos="0 0 -10">
+        <geom name="trace_dot_797_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_798" pos="0 0 -10">
+        <geom name="trace_dot_798_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_799" pos="0 0 -10">
+        <geom name="trace_dot_799_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_800" pos="0 0 -10">
+        <geom name="trace_dot_800_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_801" pos="0 0 -10">
+        <geom name="trace_dot_801_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_802" pos="0 0 -10">
+        <geom name="trace_dot_802_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_803" pos="0 0 -10">
+        <geom name="trace_dot_803_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_804" pos="0 0 -10">
+        <geom name="trace_dot_804_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_805" pos="0 0 -10">
+        <geom name="trace_dot_805_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_806" pos="0 0 -10">
+        <geom name="trace_dot_806_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_807" pos="0 0 -10">
+        <geom name="trace_dot_807_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_808" pos="0 0 -10">
+        <geom name="trace_dot_808_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_809" pos="0 0 -10">
+        <geom name="trace_dot_809_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_810" pos="0 0 -10">
+        <geom name="trace_dot_810_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_811" pos="0 0 -10">
+        <geom name="trace_dot_811_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_812" pos="0 0 -10">
+        <geom name="trace_dot_812_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_813" pos="0 0 -10">
+        <geom name="trace_dot_813_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_814" pos="0 0 -10">
+        <geom name="trace_dot_814_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_815" pos="0 0 -10">
+        <geom name="trace_dot_815_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_816" pos="0 0 -10">
+        <geom name="trace_dot_816_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_817" pos="0 0 -10">
+        <geom name="trace_dot_817_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_818" pos="0 0 -10">
+        <geom name="trace_dot_818_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_819" pos="0 0 -10">
+        <geom name="trace_dot_819_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_820" pos="0 0 -10">
+        <geom name="trace_dot_820_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_821" pos="0 0 -10">
+        <geom name="trace_dot_821_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_822" pos="0 0 -10">
+        <geom name="trace_dot_822_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_823" pos="0 0 -10">
+        <geom name="trace_dot_823_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_824" pos="0 0 -10">
+        <geom name="trace_dot_824_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_825" pos="0 0 -10">
+        <geom name="trace_dot_825_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_826" pos="0 0 -10">
+        <geom name="trace_dot_826_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_827" pos="0 0 -10">
+        <geom name="trace_dot_827_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_828" pos="0 0 -10">
+        <geom name="trace_dot_828_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_829" pos="0 0 -10">
+        <geom name="trace_dot_829_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_830" pos="0 0 -10">
+        <geom name="trace_dot_830_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_831" pos="0 0 -10">
+        <geom name="trace_dot_831_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_832" pos="0 0 -10">
+        <geom name="trace_dot_832_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_833" pos="0 0 -10">
+        <geom name="trace_dot_833_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_834" pos="0 0 -10">
+        <geom name="trace_dot_834_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_835" pos="0 0 -10">
+        <geom name="trace_dot_835_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_836" pos="0 0 -10">
+        <geom name="trace_dot_836_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_837" pos="0 0 -10">
+        <geom name="trace_dot_837_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_838" pos="0 0 -10">
+        <geom name="trace_dot_838_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_839" pos="0 0 -10">
+        <geom name="trace_dot_839_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_840" pos="0 0 -10">
+        <geom name="trace_dot_840_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_841" pos="0 0 -10">
+        <geom name="trace_dot_841_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_842" pos="0 0 -10">
+        <geom name="trace_dot_842_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_843" pos="0 0 -10">
+        <geom name="trace_dot_843_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_844" pos="0 0 -10">
+        <geom name="trace_dot_844_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_845" pos="0 0 -10">
+        <geom name="trace_dot_845_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_846" pos="0 0 -10">
+        <geom name="trace_dot_846_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_847" pos="0 0 -10">
+        <geom name="trace_dot_847_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_848" pos="0 0 -10">
+        <geom name="trace_dot_848_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_849" pos="0 0 -10">
+        <geom name="trace_dot_849_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_850" pos="0 0 -10">
+        <geom name="trace_dot_850_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_851" pos="0 0 -10">
+        <geom name="trace_dot_851_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_852" pos="0 0 -10">
+        <geom name="trace_dot_852_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_853" pos="0 0 -10">
+        <geom name="trace_dot_853_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_854" pos="0 0 -10">
+        <geom name="trace_dot_854_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_855" pos="0 0 -10">
+        <geom name="trace_dot_855_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_856" pos="0 0 -10">
+        <geom name="trace_dot_856_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_857" pos="0 0 -10">
+        <geom name="trace_dot_857_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_858" pos="0 0 -10">
+        <geom name="trace_dot_858_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_859" pos="0 0 -10">
+        <geom name="trace_dot_859_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_860" pos="0 0 -10">
+        <geom name="trace_dot_860_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_861" pos="0 0 -10">
+        <geom name="trace_dot_861_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_862" pos="0 0 -10">
+        <geom name="trace_dot_862_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_863" pos="0 0 -10">
+        <geom name="trace_dot_863_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_864" pos="0 0 -10">
+        <geom name="trace_dot_864_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_865" pos="0 0 -10">
+        <geom name="trace_dot_865_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_866" pos="0 0 -10">
+        <geom name="trace_dot_866_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_867" pos="0 0 -10">
+        <geom name="trace_dot_867_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_868" pos="0 0 -10">
+        <geom name="trace_dot_868_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_869" pos="0 0 -10">
+        <geom name="trace_dot_869_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_870" pos="0 0 -10">
+        <geom name="trace_dot_870_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_871" pos="0 0 -10">
+        <geom name="trace_dot_871_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_872" pos="0 0 -10">
+        <geom name="trace_dot_872_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_873" pos="0 0 -10">
+        <geom name="trace_dot_873_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_874" pos="0 0 -10">
+        <geom name="trace_dot_874_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_875" pos="0 0 -10">
+        <geom name="trace_dot_875_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_876" pos="0 0 -10">
+        <geom name="trace_dot_876_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_877" pos="0 0 -10">
+        <geom name="trace_dot_877_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_878" pos="0 0 -10">
+        <geom name="trace_dot_878_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_879" pos="0 0 -10">
+        <geom name="trace_dot_879_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_880" pos="0 0 -10">
+        <geom name="trace_dot_880_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_881" pos="0 0 -10">
+        <geom name="trace_dot_881_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_882" pos="0 0 -10">
+        <geom name="trace_dot_882_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_883" pos="0 0 -10">
+        <geom name="trace_dot_883_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_884" pos="0 0 -10">
+        <geom name="trace_dot_884_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_885" pos="0 0 -10">
+        <geom name="trace_dot_885_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_886" pos="0 0 -10">
+        <geom name="trace_dot_886_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_887" pos="0 0 -10">
+        <geom name="trace_dot_887_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_888" pos="0 0 -10">
+        <geom name="trace_dot_888_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_889" pos="0 0 -10">
+        <geom name="trace_dot_889_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_890" pos="0 0 -10">
+        <geom name="trace_dot_890_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_891" pos="0 0 -10">
+        <geom name="trace_dot_891_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_892" pos="0 0 -10">
+        <geom name="trace_dot_892_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_893" pos="0 0 -10">
+        <geom name="trace_dot_893_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_894" pos="0 0 -10">
+        <geom name="trace_dot_894_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_895" pos="0 0 -10">
+        <geom name="trace_dot_895_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_896" pos="0 0 -10">
+        <geom name="trace_dot_896_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_897" pos="0 0 -10">
+        <geom name="trace_dot_897_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_898" pos="0 0 -10">
+        <geom name="trace_dot_898_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_899" pos="0 0 -10">
+        <geom name="trace_dot_899_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_900" pos="0 0 -10">
+        <geom name="trace_dot_900_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_901" pos="0 0 -10">
+        <geom name="trace_dot_901_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_902" pos="0 0 -10">
+        <geom name="trace_dot_902_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_903" pos="0 0 -10">
+        <geom name="trace_dot_903_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_904" pos="0 0 -10">
+        <geom name="trace_dot_904_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_905" pos="0 0 -10">
+        <geom name="trace_dot_905_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_906" pos="0 0 -10">
+        <geom name="trace_dot_906_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_907" pos="0 0 -10">
+        <geom name="trace_dot_907_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_908" pos="0 0 -10">
+        <geom name="trace_dot_908_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_909" pos="0 0 -10">
+        <geom name="trace_dot_909_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_910" pos="0 0 -10">
+        <geom name="trace_dot_910_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_911" pos="0 0 -10">
+        <geom name="trace_dot_911_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_912" pos="0 0 -10">
+        <geom name="trace_dot_912_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_913" pos="0 0 -10">
+        <geom name="trace_dot_913_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_914" pos="0 0 -10">
+        <geom name="trace_dot_914_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_915" pos="0 0 -10">
+        <geom name="trace_dot_915_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_916" pos="0 0 -10">
+        <geom name="trace_dot_916_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_917" pos="0 0 -10">
+        <geom name="trace_dot_917_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_918" pos="0 0 -10">
+        <geom name="trace_dot_918_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_919" pos="0 0 -10">
+        <geom name="trace_dot_919_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_920" pos="0 0 -10">
+        <geom name="trace_dot_920_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_921" pos="0 0 -10">
+        <geom name="trace_dot_921_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_922" pos="0 0 -10">
+        <geom name="trace_dot_922_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_923" pos="0 0 -10">
+        <geom name="trace_dot_923_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_924" pos="0 0 -10">
+        <geom name="trace_dot_924_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_925" pos="0 0 -10">
+        <geom name="trace_dot_925_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_926" pos="0 0 -10">
+        <geom name="trace_dot_926_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_927" pos="0 0 -10">
+        <geom name="trace_dot_927_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_928" pos="0 0 -10">
+        <geom name="trace_dot_928_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_929" pos="0 0 -10">
+        <geom name="trace_dot_929_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_930" pos="0 0 -10">
+        <geom name="trace_dot_930_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_931" pos="0 0 -10">
+        <geom name="trace_dot_931_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_932" pos="0 0 -10">
+        <geom name="trace_dot_932_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_933" pos="0 0 -10">
+        <geom name="trace_dot_933_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_934" pos="0 0 -10">
+        <geom name="trace_dot_934_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_935" pos="0 0 -10">
+        <geom name="trace_dot_935_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_936" pos="0 0 -10">
+        <geom name="trace_dot_936_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_937" pos="0 0 -10">
+        <geom name="trace_dot_937_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_938" pos="0 0 -10">
+        <geom name="trace_dot_938_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_939" pos="0 0 -10">
+        <geom name="trace_dot_939_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_940" pos="0 0 -10">
+        <geom name="trace_dot_940_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_941" pos="0 0 -10">
+        <geom name="trace_dot_941_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_942" pos="0 0 -10">
+        <geom name="trace_dot_942_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_943" pos="0 0 -10">
+        <geom name="trace_dot_943_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_944" pos="0 0 -10">
+        <geom name="trace_dot_944_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_945" pos="0 0 -10">
+        <geom name="trace_dot_945_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_946" pos="0 0 -10">
+        <geom name="trace_dot_946_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_947" pos="0 0 -10">
+        <geom name="trace_dot_947_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_948" pos="0 0 -10">
+        <geom name="trace_dot_948_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_949" pos="0 0 -10">
+        <geom name="trace_dot_949_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_950" pos="0 0 -10">
+        <geom name="trace_dot_950_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_951" pos="0 0 -10">
+        <geom name="trace_dot_951_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_952" pos="0 0 -10">
+        <geom name="trace_dot_952_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_953" pos="0 0 -10">
+        <geom name="trace_dot_953_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_954" pos="0 0 -10">
+        <geom name="trace_dot_954_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_955" pos="0 0 -10">
+        <geom name="trace_dot_955_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_956" pos="0 0 -10">
+        <geom name="trace_dot_956_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_957" pos="0 0 -10">
+        <geom name="trace_dot_957_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_958" pos="0 0 -10">
+        <geom name="trace_dot_958_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_959" pos="0 0 -10">
+        <geom name="trace_dot_959_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_960" pos="0 0 -10">
+        <geom name="trace_dot_960_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_961" pos="0 0 -10">
+        <geom name="trace_dot_961_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_962" pos="0 0 -10">
+        <geom name="trace_dot_962_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_963" pos="0 0 -10">
+        <geom name="trace_dot_963_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_964" pos="0 0 -10">
+        <geom name="trace_dot_964_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_965" pos="0 0 -10">
+        <geom name="trace_dot_965_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_966" pos="0 0 -10">
+        <geom name="trace_dot_966_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_967" pos="0 0 -10">
+        <geom name="trace_dot_967_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_968" pos="0 0 -10">
+        <geom name="trace_dot_968_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_969" pos="0 0 -10">
+        <geom name="trace_dot_969_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_970" pos="0 0 -10">
+        <geom name="trace_dot_970_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_971" pos="0 0 -10">
+        <geom name="trace_dot_971_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_972" pos="0 0 -10">
+        <geom name="trace_dot_972_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_973" pos="0 0 -10">
+        <geom name="trace_dot_973_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_974" pos="0 0 -10">
+        <geom name="trace_dot_974_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_975" pos="0 0 -10">
+        <geom name="trace_dot_975_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_976" pos="0 0 -10">
+        <geom name="trace_dot_976_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_977" pos="0 0 -10">
+        <geom name="trace_dot_977_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_978" pos="0 0 -10">
+        <geom name="trace_dot_978_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_979" pos="0 0 -10">
+        <geom name="trace_dot_979_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_980" pos="0 0 -10">
+        <geom name="trace_dot_980_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_981" pos="0 0 -10">
+        <geom name="trace_dot_981_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_982" pos="0 0 -10">
+        <geom name="trace_dot_982_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_983" pos="0 0 -10">
+        <geom name="trace_dot_983_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_984" pos="0 0 -10">
+        <geom name="trace_dot_984_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_985" pos="0 0 -10">
+        <geom name="trace_dot_985_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_986" pos="0 0 -10">
+        <geom name="trace_dot_986_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_987" pos="0 0 -10">
+        <geom name="trace_dot_987_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_988" pos="0 0 -10">
+        <geom name="trace_dot_988_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_989" pos="0 0 -10">
+        <geom name="trace_dot_989_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_990" pos="0 0 -10">
+        <geom name="trace_dot_990_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_991" pos="0 0 -10">
+        <geom name="trace_dot_991_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_992" pos="0 0 -10">
+        <geom name="trace_dot_992_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_993" pos="0 0 -10">
+        <geom name="trace_dot_993_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_994" pos="0 0 -10">
+        <geom name="trace_dot_994_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_995" pos="0 0 -10">
+        <geom name="trace_dot_995_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_996" pos="0 0 -10">
+        <geom name="trace_dot_996_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_997" pos="0 0 -10">
+        <geom name="trace_dot_997_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_998" pos="0 0 -10">
+        <geom name="trace_dot_998_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_999" pos="0 0 -10">
+        <geom name="trace_dot_999_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_1000" pos="0 0 -10">
+        <geom name="trace_dot_1000_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_1001" pos="0 0 -10">
+        <geom name="trace_dot_1001_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_1002" pos="0 0 -10">
+        <geom name="trace_dot_1002_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_1003" pos="0 0 -10">
+        <geom name="trace_dot_1003_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_1004" pos="0 0 -10">
+        <geom name="trace_dot_1004_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_1005" pos="0 0 -10">
+        <geom name="trace_dot_1005_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_1006" pos="0 0 -10">
+        <geom name="trace_dot_1006_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_1007" pos="0 0 -10">
+        <geom name="trace_dot_1007_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_1008" pos="0 0 -10">
+        <geom name="trace_dot_1008_geom" type="sphere" size="0.008" 
+              rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
+    </body>
+    <body name="trace_dot_1009" pos="0 0 -10">
+        <geom name="trace_dot_1009_geom" type="sphere" size="0.008" 
               rgba="1.0 1.0 1.0 0.8" material="" contype="0" conaffinity="0"/>
     </body></worldbody>
 </mujoco>

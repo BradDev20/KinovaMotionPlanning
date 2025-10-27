@@ -83,119 +83,123 @@ class ConstrainedTrajOptPlanner(UnconstrainedTrajOptPlanner):
         Compute velocity constraint violations.
         Returns array where negative values indicate constraint violations.
         """
-        trajectory = self._vector_to_trajectory(trajectory_vector)
-        
-        if trajectory.shape[0] < 2:
-            return np.array([])
-        
-        # Compute velocities (finite differences)
-        velocities = np.diff(trajectory, axis=0) / self.dt
-        
-        # Compute velocity magnitudes for each waypoint transition
-        velocity_magnitudes = np.linalg.norm(velocities, axis=1)
-        
-        # Constraint: max_velocity - |velocity| >= 0
-        # Negative values indicate constraint violations
-        constraints = self.max_velocity - velocity_magnitudes
-        
-        return constraints
+        with self.timer.time_operation('Constraint_Eval'):
+            trajectory = self._vector_to_trajectory(trajectory_vector)
+            
+            if trajectory.shape[0] < 2:
+                return np.array([])
+            
+            # Compute velocities (finite differences)
+            velocities = np.diff(trajectory, axis=0) / self.dt
+            
+            # Compute velocity magnitudes for each waypoint transition
+            velocity_magnitudes = np.linalg.norm(velocities, axis=1)
+            
+            # Constraint: max_velocity - |velocity| >= 0
+            # Negative values indicate constraint violations
+            constraints = self.max_velocity - velocity_magnitudes
+            
+            return constraints
 
     def _compute_acceleration_constraints(self, trajectory_vector: np.ndarray) -> np.ndarray:
         """
         Compute acceleration constraint violations.
         Returns array where negative values indicate constraint violations.
         """
-        trajectory = self._vector_to_trajectory(trajectory_vector)
-        
-        if trajectory.shape[0] < 3:
-            return np.array([])
-        
-        # Compute accelerations (second-order finite differences)
-        accelerations = np.diff(trajectory, n=2, axis=0) / (self.dt ** 2)
-        
-        # Compute acceleration magnitudes for each waypoint
-        acceleration_magnitudes = np.linalg.norm(accelerations, axis=1)
-        
-        # Constraint: max_acceleration - |acceleration| >= 0
-        # Negative values indicate constraint violations
-        constraints = self.max_acceleration - acceleration_magnitudes
-        
-        return constraints
+        with self.timer.time_operation('Constraint_Eval'):
+            trajectory = self._vector_to_trajectory(trajectory_vector)
+            
+            if trajectory.shape[0] < 3:
+                return np.array([])
+            
+            # Compute accelerations (second-order finite differences)
+            accelerations = np.diff(trajectory, n=2, axis=0) / (self.dt ** 2)
+            
+            # Compute acceleration magnitudes for each waypoint
+            acceleration_magnitudes = np.linalg.norm(accelerations, axis=1)
+            
+            # Constraint: max_acceleration - |acceleration| >= 0
+            # Negative values indicate constraint violations
+            constraints = self.max_acceleration - acceleration_magnitudes
+            
+            return constraints
 
     def _compute_velocity_constraint_jacobian(self, trajectory_vector: np.ndarray) -> np.ndarray:
         """
         Compute Jacobian of velocity constraints with respect to trajectory parameters.
         """
-        trajectory = self._vector_to_trajectory(trajectory_vector)
-        
-        if trajectory.shape[0] < 2:
-            return np.array([]).reshape(0, len(trajectory_vector))
-        
-        n_velocity_constraints = trajectory.shape[0] - 1
-        jacobian = np.zeros((n_velocity_constraints, len(trajectory_vector)))
-        
-        # Compute velocities
-        velocities = np.diff(trajectory, axis=0) / self.dt
-        velocity_magnitudes = np.linalg.norm(velocities, axis=1)
-        
-        for i in range(n_velocity_constraints):
-            if velocity_magnitudes[i] > 1e-8:  # Avoid division by zero
-                # Gradient of -|velocity_i| with respect to trajectory
-                vel_unit = velocities[i] / velocity_magnitudes[i]
-                
-                # Velocity depends on waypoints i and i+1
-                start_idx = i * self.n_dof
-                end_idx = (i + 1) * self.n_dof
-                
-                # Contribution from waypoint i (negative because velocity = (q_{i+1} - q_i)/dt)
-                jacobian[i, start_idx:start_idx + self.n_dof] = vel_unit / self.dt
-                
-                # Contribution from waypoint i+1 (positive)
-                jacobian[i, end_idx:end_idx + self.n_dof] = -vel_unit / self.dt
-        
-        return jacobian
+        with self.timer.time_operation('Constraint_Jacobian'):
+            trajectory = self._vector_to_trajectory(trajectory_vector)
+            
+            if trajectory.shape[0] < 2:
+                return np.array([]).reshape(0, len(trajectory_vector))
+            
+            n_velocity_constraints = trajectory.shape[0] - 1
+            jacobian = np.zeros((n_velocity_constraints, len(trajectory_vector)))
+            
+            # Compute velocities
+            velocities = np.diff(trajectory, axis=0) / self.dt
+            velocity_magnitudes = np.linalg.norm(velocities, axis=1)
+            
+            for i in range(n_velocity_constraints):
+                if velocity_magnitudes[i] > 1e-8:  # Avoid division by zero
+                    # Gradient of -|velocity_i| with respect to trajectory
+                    vel_unit = velocities[i] / velocity_magnitudes[i]
+                    
+                    # Velocity depends on waypoints i and i+1
+                    start_idx = i * self.n_dof
+                    end_idx = (i + 1) * self.n_dof
+                    
+                    # Contribution from waypoint i (negative because velocity = (q_{i+1} - q_i)/dt)
+                    jacobian[i, start_idx:start_idx + self.n_dof] = vel_unit / self.dt
+                    
+                    # Contribution from waypoint i+1 (positive)
+                    jacobian[i, end_idx:end_idx + self.n_dof] = -vel_unit / self.dt
+            
+            return jacobian
 
     def _compute_acceleration_constraint_jacobian(self, trajectory_vector: np.ndarray) -> np.ndarray:
         """
         Compute Jacobian of acceleration constraints with respect to trajectory parameters.
         """
-        trajectory = self._vector_to_trajectory(trajectory_vector)
-        
-        if trajectory.shape[0] < 3:
-            return np.array([]).reshape(0, len(trajectory_vector))
-        
-        n_acceleration_constraints = trajectory.shape[0] - 2
-        jacobian = np.zeros((n_acceleration_constraints, len(trajectory_vector)))
-        
-        # Compute accelerations
-        accelerations = np.diff(trajectory, n=2, axis=0) / (self.dt ** 2)
-        acceleration_magnitudes = np.linalg.norm(accelerations, axis=1)
-        
-        for i in range(n_acceleration_constraints):
-            if acceleration_magnitudes[i] > 1e-8:  # Avoid division by zero
-                # Gradient of -|acceleration_i| with respect to trajectory
-                acc_unit = accelerations[i] / acceleration_magnitudes[i]
-                
-                # Acceleration depends on waypoints i, i+1, and i+2
-                # acceleration = (q_{i+2} - 2*q_{i+1} + q_i) / dt^2
-                
-                waypoint_i_idx = i * self.n_dof
-                waypoint_i1_idx = (i + 1) * self.n_dof
-                waypoint_i2_idx = (i + 2) * self.n_dof
-                
-                # Coefficients from second-order finite difference
-                coeff = 1.0 / (self.dt ** 2)
-                
-                # Contribution from waypoint i
-                jacobian[i, waypoint_i_idx:waypoint_i_idx + self.n_dof] = -acc_unit * coeff
-                
-                # Contribution from waypoint i+1 (coefficient is -2)
-                jacobian[i, waypoint_i1_idx:waypoint_i1_idx + self.n_dof] = acc_unit * 2 * coeff
-                
-                # Contribution from waypoint i+2
-                jacobian[i, waypoint_i2_idx:waypoint_i2_idx + self.n_dof] = -acc_unit * coeff
-        
-        return jacobian
+        with self.timer.time_operation('Constraint_Jacobian'):
+            trajectory = self._vector_to_trajectory(trajectory_vector)
+            
+            if trajectory.shape[0] < 3:
+                return np.array([]).reshape(0, len(trajectory_vector))
+            
+            n_acceleration_constraints = trajectory.shape[0] - 2
+            jacobian = np.zeros((n_acceleration_constraints, len(trajectory_vector)))
+            
+            # Compute accelerations
+            accelerations = np.diff(trajectory, n=2, axis=0) / (self.dt ** 2)
+            acceleration_magnitudes = np.linalg.norm(accelerations, axis=1)
+            
+            for i in range(n_acceleration_constraints):
+                if acceleration_magnitudes[i] > 1e-8:  # Avoid division by zero
+                    # Gradient of -|acceleration_i| with respect to trajectory
+                    acc_unit = accelerations[i] / acceleration_magnitudes[i]
+                    
+                    # Acceleration depends on waypoints i, i+1, and i+2
+                    # acceleration = (q_{i+2} - 2*q_{i+1} + q_i) / dt^2
+                    
+                    waypoint_i_idx = i * self.n_dof
+                    waypoint_i1_idx = (i + 1) * self.n_dof
+                    waypoint_i2_idx = (i + 2) * self.n_dof
+                    
+                    # Coefficients from second-order finite difference
+                    coeff = 1.0 / (self.dt ** 2)
+                    
+                    # Contribution from waypoint i
+                    jacobian[i, waypoint_i_idx:waypoint_i_idx + self.n_dof] = -acc_unit * coeff
+                    
+                    # Contribution from waypoint i+1 (coefficient is -2)
+                    jacobian[i, waypoint_i1_idx:waypoint_i1_idx + self.n_dof] = acc_unit * 2 * coeff
+                    
+                    # Contribution from waypoint i+2
+                    jacobian[i, waypoint_i2_idx:waypoint_i2_idx + self.n_dof] = -acc_unit * coeff
+            
+            return jacobian
 
     def enable_fixed_z_constraint(self, kinematics_solver, target_z: float, tol: float = 1e-3):
         """Enable |z(q)-target_z| <= tol for (most) waypoints."""
@@ -258,50 +262,52 @@ class ConstrainedTrajOptPlanner(UnconstrainedTrajOptPlanner):
         Compute epigraph constraints: w_i * f_i(T) <= t for all i.
         Returns array where positive values indicate constraint satisfaction.
         """
-        if not self._is_max_constrained_mode():
-            return np.array([])
-        
-        trajectory_vector, t = self._extract_trajectory_and_t(augmented_vector)
-        trajectory = self._vector_to_trajectory(trajectory_vector)
-        
-        # Compute weighted individual costs
-        weighted_costs = self.composite_cost_function.compute_weighted_individual_costs(trajectory, self.dt)
-        
-        # Constraints: t - w_i * f_i(T) >= 0 for all i
-        # Positive values indicate satisfaction
-        constraints = t - weighted_costs
-        
-        return constraints
+        with self.timer.time_operation('Constraint_Eval'):
+            if not self._is_max_constrained_mode():
+                return np.array([])
+            
+            trajectory_vector, t = self._extract_trajectory_and_t(augmented_vector)
+            trajectory = self._vector_to_trajectory(trajectory_vector)
+            
+            # Compute weighted individual costs
+            weighted_costs = self.composite_cost_function.compute_weighted_individual_costs(trajectory, self.dt)
+            
+            # Constraints: t - w_i * f_i(T) >= 0 for all i
+            # Positive values indicate satisfaction
+            constraints = t - weighted_costs
+            
+            return constraints
     
     def _compute_epigraph_constraint_jacobian(self, augmented_vector: np.ndarray) -> np.ndarray:
         """
         Compute Jacobian of epigraph constraints w.r.t. augmented variables [T, t].
         Each row corresponds to one constraint: w_i * f_i(T) <= t
         """
-        if not self._is_max_constrained_mode():
-            return np.array([]).reshape(0, len(augmented_vector))
-        
-        trajectory_vector, t = self._extract_trajectory_and_t(augmented_vector)
-        trajectory = self._vector_to_trajectory(trajectory_vector)
-        
-        # Get gradients of weighted individual costs w.r.t. trajectory
-        individual_gradients = self.composite_cost_function.compute_individual_cost_gradients(trajectory, self.dt)
-        
-        n_cost_functions = len(individual_gradients)
-        n_traj_vars = len(trajectory_vector)
-        n_total_vars = len(augmented_vector)
-        
-        jacobian = np.zeros((n_cost_functions, n_total_vars))
-        
-        for i, grad in enumerate(individual_gradients):
-            # Gradient w.r.t. trajectory variables: -w_i * ∇f_i(T)
-            grad_vector = self._trajectory_to_vector(grad)
-            jacobian[i, :n_traj_vars] = -grad_vector
+        with self.timer.time_operation('Constraint_Jacobian'):
+            if not self._is_max_constrained_mode():
+                return np.array([]).reshape(0, len(augmented_vector))
             
-            # Gradient w.r.t. t: +1
-            jacobian[i, -1] = 1.0
-        
-        return jacobian
+            trajectory_vector, t = self._extract_trajectory_and_t(augmented_vector)
+            trajectory = self._vector_to_trajectory(trajectory_vector)
+            
+            # Get gradients of weighted individual costs w.r.t. trajectory
+            individual_gradients = self.composite_cost_function.compute_individual_cost_gradients(trajectory, self.dt)
+            
+            n_cost_functions = len(individual_gradients)
+            n_traj_vars = len(trajectory_vector)
+            n_total_vars = len(augmented_vector)
+            
+            jacobian = np.zeros((n_cost_functions, n_total_vars))
+            
+            for i, grad in enumerate(individual_gradients):
+                # Gradient w.r.t. trajectory variables: -w_i * ∇f_i(T)
+                grad_vector = self._trajectory_to_vector(grad)
+                jacobian[i, :n_traj_vars] = -grad_vector
+                
+                # Gradient w.r.t. t: +1
+                jacobian[i, -1] = 1.0
+            
+            return jacobian
 
     def _create_constraints(self):
         """Create constraint dictionaries for scipy.optimize.minimize"""
@@ -576,6 +582,10 @@ class ConstrainedTrajOptPlanner(UnconstrainedTrajOptPlanner):
         print(f"  Optimization budget: {max_evaluations} evaluations, {maxiter} iterations, ftol={ftol:.0e}, patience={patience}")
         
         try:
+            # Track total optimization time
+            import time
+            optimization_start = time.perf_counter()
+            
             result = minimize(
                 fun=self._compute_total_cost_augmented,
                 x0=initial_vector,
@@ -590,7 +600,12 @@ class ConstrainedTrajOptPlanner(UnconstrainedTrajOptPlanner):
                     'disp': False  # Suppress verbose output
                 }
             )
+            
+            optimization_end = time.perf_counter()
+            total_optimization_time = optimization_end - optimization_start
         except StopIteration as e:
+            optimization_end = time.perf_counter()
+            total_optimization_time = optimization_end - optimization_start
             print(f"  ⚠ {e}")
             # Create a pseudo-result for the case where we hit the evaluation limit
             class PseudoResult:
@@ -621,6 +636,9 @@ class ConstrainedTrajOptPlanner(UnconstrainedTrajOptPlanner):
         # Extract trajectory and t from result
         final_traj_vec, final_t = self._extract_trajectory_and_t(result.x)
         
+        # Collect timing statistics from all sources
+        timing_summary = self._collect_timing_statistics(total_optimization_time)
+        
         # Prepare metadata
         metadata = {
             'iterations': self.iteration_count,
@@ -628,6 +646,7 @@ class ConstrainedTrajOptPlanner(UnconstrainedTrajOptPlanner):
             'cost_mode': self.cost_mode,
             'stopped_early': 'Early stopping' in result.message if hasattr(result, 'message') else False,
             'termination_reason': result.message if hasattr(result, 'message') else 'Unknown',
+            'timing': timing_summary,
         }
         
         if self._is_max_constrained_mode() and final_t is not None:
@@ -673,3 +692,94 @@ class ConstrainedTrajOptPlanner(UnconstrainedTrajOptPlanner):
             # Return initial trajectory as fallback
             initial_trajectory_list = [waypoint for waypoint in initial_trajectory]
             return initial_trajectory_list, False, metadata
+    
+    def _collect_timing_statistics(self, total_optimization_time: float = None) -> Dict[str, Any]:
+        """Collect timing statistics from all components"""
+        aggregated_timings = {}
+        aggregated_counts = {}
+        
+        # Collect from cost function(s)
+        if self.cost_mode == 'composite' and self.composite_cost_function is not None:
+            cost_timer = self.composite_cost_function.timer
+            for op_name, op_time in cost_timer.timings.items():
+                if op_name not in aggregated_timings:
+                    aggregated_timings[op_name] = 0.0
+                    aggregated_counts[op_name] = 0
+                aggregated_timings[op_name] += op_time
+                aggregated_counts[op_name] += cost_timer.call_counts[op_name]
+            
+            # Also collect from individual cost functions if they use FK
+            for cf in self.composite_cost_function.cost_functions:
+                if hasattr(cf, 'kinematics_solver') and hasattr(cf.kinematics_solver, 'timer'):
+                    kin_timer = cf.kinematics_solver.timer
+                    for op_name, op_time in kin_timer.timings.items():
+                        if op_name not in aggregated_timings:
+                            aggregated_timings[op_name] = 0.0
+                            aggregated_counts[op_name] = 0
+                        aggregated_timings[op_name] += op_time
+                        aggregated_counts[op_name] += kin_timer.call_counts[op_name]
+        
+        # Collect from planner's timer
+        for op_name, op_time in self.timer.timings.items():
+            if op_name not in aggregated_timings:
+                aggregated_timings[op_name] = 0.0
+                aggregated_counts[op_name] = 0
+            aggregated_timings[op_name] += op_time
+            aggregated_counts[op_name] += self.timer.call_counts[op_name]
+        
+        # Calculate tracked time and optimizer overhead
+        tracked_time = sum(aggregated_timings.values())
+        
+        # Add optimizer overhead if we have total optimization time
+        if total_optimization_time is not None and total_optimization_time > tracked_time:
+            optimizer_overhead = total_optimization_time - tracked_time
+            aggregated_timings['Optimizer_Overhead'] = optimizer_overhead
+            aggregated_counts['Optimizer_Overhead'] = 1
+            total_time = total_optimization_time
+        else:
+            total_time = tracked_time
+        
+        timing_summary = {
+            'total_time': total_time,
+            'timings': aggregated_timings,
+            'call_counts': aggregated_counts,
+            'percentages': {
+                name: (time_val / total_time * 100) if total_time > 0 else 0.0
+                for name, time_val in aggregated_timings.items()
+            },
+            'average_times': {
+                name: (aggregated_timings[name] / aggregated_counts[name]) if aggregated_counts[name] > 0 else 0.0
+                for name in aggregated_timings.keys()
+            }
+        }
+        
+        return timing_summary
+    
+    def print_timing_summary(self, timing_summary: Optional[Dict[str, Any]] = None):
+        """Print formatted timing summary"""
+        if timing_summary is None:
+            timing_summary = self._collect_timing_statistics()
+        
+        print(f"\n{'='*70}")
+        print(f"Performance Timing Summary")
+        print(f"{'='*70}")
+        print(f"Total Optimization Time: {timing_summary['total_time']:.3f}s")
+        print(f"{'-'*70}")
+        print(f"{'Operation':<20} {'Time (s)':<12} {'%':<8} {'Calls':<10} {'Avg (ms)':<10}")
+        print(f"{'-'*70}")
+        
+        # Sort by time spent (descending)
+        sorted_ops = sorted(
+            timing_summary['timings'].keys(),
+            key=lambda x: timing_summary['timings'][x],
+            reverse=True
+        )
+        
+        for op in sorted_ops:
+            time_val = timing_summary['timings'][op]
+            pct = timing_summary['percentages'][op]
+            calls = timing_summary['call_counts'][op]
+            avg_ms = timing_summary['average_times'][op] * 1000
+            print(f"{op:<20} {time_val:<12.3f} {pct:<8.1f} {calls:<10} {avg_ms:<10.3f}")
+        
+        print(f"{'='*70}\n")

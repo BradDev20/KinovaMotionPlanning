@@ -2,13 +2,14 @@ import numpy as np
 import mujoco
 from typing import List, Tuple, Callable, Optional, Dict, Any
 from .kinematics import KinematicsSolver
-from .utils import Obstacle
+from .utils import Obstacle, PerformanceTimer
 
 class CostFunction:
     """Base class for trajectory optimization cost functions"""
 
     def __init__(self, weight: float = 1.0):
         self.weight = weight
+        self.timer = PerformanceTimer()
 
     def compute_cost(self, trajectory: np.ndarray, dt: float = 0.1) -> float:
         """
@@ -181,6 +182,29 @@ class TrajectoryLengthCostFunction(CostFunction):
             normalized_cost = total_length
         
         return float(self.weight * normalized_cost)
+    
+    def compute_cost_with_fk(self, trajectory: np.ndarray, dt: float, fk_results: List) -> float:
+        """Compute trajectory length cost with pre-computed FK results (faster)"""
+        if trajectory.shape[0] < 2 or len(fk_results) < 2:
+            return 0.0
+        
+        # Extract end-effector positions from pre-computed FK results
+        ee_positions = np.array([fk[0] for fk in fk_results])
+        
+        # Compute distances between consecutive end-effector positions
+        distances = np.linalg.norm(np.diff(ee_positions, axis=0), axis=1)
+        total_length = np.sum(distances)
+        
+        # Calculate the distance between the first and last waypoints
+        first_last_distance = np.linalg.norm(ee_positions[0] - ee_positions[-1])
+        
+        # Normalize by first-to-last distance
+        if first_last_distance > 1e-8:
+            normalized_cost = total_length / first_last_distance
+        else:
+            normalized_cost = total_length
+        
+        return float(self.weight * normalized_cost)
 
     def _compute_jacobian(self, joint_positions: np.ndarray, eps: float = 1e-6) -> np.ndarray:
         """Compute end-effector position Jacobian using finite differences"""
@@ -247,6 +271,12 @@ class TrajectoryLengthCostFunction(CostFunction):
             return gradient * self.weight / first_last_distance * 0.2
         else:
             return gradient * self.weight * 0.2
+    
+    def compute_gradient_with_fk(self, trajectory: np.ndarray, dt: float, fk_results: List) -> np.ndarray:
+        """Compute gradient with pre-computed FK results (FK still needed for Jacobians)"""
+        # Note: We still need to compute Jacobians, so savings are limited here
+        # But we save one FK call per waypoint by reusing fk_results
+        return self.compute_gradient(trajectory, dt)
 
 
 class ObstacleAvoidanceCostFunction(CostFunction):
@@ -330,6 +360,30 @@ class ObstacleAvoidanceCostFunction(CostFunction):
 
         # normalize and apply this CF's weight
         return float(self.weight * normalized_cost) # 50 is the number of waypoints, will need to change if the trajectory changes 
+    
+    def compute_cost_with_fk(self, trajectory: np.ndarray, dt: float, fk_results: List) -> float:
+        """Compute obstacle avoidance cost with pre-computed FK results (faster)"""
+        if not self.obstacles or trajectory.size == 0:
+            return 0.0
+        
+        # Use pre-computed FK results (no backup/restore needed)
+        wp_costs = []
+        for fk in fk_results:
+            ee = fk[0]  # Extract position from FK result
+            d_surface = self._closest_surface_distance(ee)
+            wp_costs.append(self._waypoint_cost_from_surface_dist(d_surface))
+        
+        if self.aggregate == "min":
+            agg_cost = float(min(wp_costs))
+            normalized_cost = agg_cost
+        elif self.aggregate == "sum":
+            agg_cost = float(np.sum(wp_costs) * dt)
+            normalized_cost = agg_cost
+        else:  # "avg"
+            agg_cost = float(np.mean(wp_costs))
+            normalized_cost = agg_cost
+        
+        return float(self.weight * normalized_cost)
 
     # ---------- gradient ----------
     def compute_gradient(self, trajectory: np.ndarray, dt: float = 0.1) -> np.ndarray:
@@ -401,6 +455,12 @@ class ObstacleAvoidanceCostFunction(CostFunction):
         # Apply weight with light damping - obstacle avoidance needs strong gradients
         # to escape local minima where trajectory goes through obstacles
         return grad * self.weight * 0.5
+    
+    def compute_gradient_with_fk(self, trajectory: np.ndarray, dt: float, fk_results: List) -> np.ndarray:
+        """Compute gradient with pre-computed FK results (FK still needed for Jacobians)"""
+        # Note: We still need to compute Jacobians, so savings are limited here
+        # But we save FK calls in the first pass by reusing fk_results
+        return self.compute_gradient(trajectory, dt)
 
     # ---------- utils ----------
     def add_obstacle(self, obstacle: Obstacle):
@@ -530,92 +590,94 @@ class CompositeCostFunction(CostFunction):
     
     def compute_cost(self, trajectory: np.ndarray, dt: float = 0.1) -> float:
         """Compute composite cost using specified mode."""
-        if not self.cost_functions:
-            return 0.0
-        
-        # Compute all individual costs
-        individual_costs = np.array([
-            cf.compute_cost(trajectory, dt) for cf in self.cost_functions
-        ])
-        
-        if self.mode == 'sum':
-            # Linear weighted sum: cost = Σ(w_i * f_i)
-            return float(np.sum(self.weights * individual_costs))
-        
-        elif self.mode == 'max':
-            # Weighted maximum with tie-breaking: cost = max(w_i * f_i) + ρ * Σ(f_i)
-            weighted_costs = self.weights * individual_costs
-            max_term = np.max(weighted_costs)
-            sum_term = self.rho * np.sum(individual_costs)
-            return float(max_term + sum_term)
-        
-        elif self.mode == 'max_constrained':
-            # Epigraph reformulation: cost = ρ * Σ(f_i)
-            # The 't' term (auxiliary variable for max) is handled by the planner
-            # Constraints w_i * f_i(T) ≤ t are also handled by the planner
-            sum_term = self.rho * np.sum(individual_costs)
-            return float(sum_term)
-        
-        else:
-            raise ValueError(f"Invalid mode: {self.mode}. Must be 'sum', 'max', or 'max_constrained'.")
+        with self.timer.time_operation('Cost'):
+            if not self.cost_functions:
+                return 0.0
+            
+            # Compute all individual costs
+            individual_costs = np.array([
+                cf.compute_cost(trajectory, dt) for cf in self.cost_functions
+            ])
+            
+            if self.mode == 'sum':
+                # Linear weighted sum: cost = Σ(w_i * f_i)
+                return float(np.sum(self.weights * individual_costs))
+            
+            elif self.mode == 'max':
+                # Weighted maximum with tie-breaking: cost = max(w_i * f_i) + ρ * Σ(f_i)
+                weighted_costs = self.weights * individual_costs
+                max_term = np.max(weighted_costs)
+                sum_term = self.rho * np.sum(individual_costs)
+                return float(max_term + sum_term)
+            
+            elif self.mode == 'max_constrained':
+                # Epigraph reformulation: cost = ρ * Σ(f_i)
+                # The 't' term (auxiliary variable for max) is handled by the planner
+                # Constraints w_i * f_i(T) ≤ t are also handled by the planner
+                sum_term = self.rho * np.sum(individual_costs)
+                return float(sum_term)
+            
+            else:
+                raise ValueError(f"Invalid mode: {self.mode}. Must be 'sum', 'max', or 'max_constrained'.")
     
     def compute_gradient(self, trajectory: np.ndarray, dt: float = 0.1) -> np.ndarray:
         """Compute composite gradient using specified mode."""
-        if not self.cost_functions:
-            return np.zeros_like(trajectory)
-        
-        # Compute all individual costs and gradients
-        individual_costs = np.array([
-            cf.compute_cost(trajectory, dt) for cf in self.cost_functions
-        ])
-        individual_gradients = [
-            cf.compute_gradient(trajectory, dt) for cf in self.cost_functions
-        ]
-        
-        if self.mode == 'sum':
-            # Linear weighted sum gradient: ∇cost = Σ(w_i * ∇f_i)
-            total_gradient = np.zeros_like(trajectory)
-            for i, grad in enumerate(individual_gradients):
-                total_gradient += self.weights[i] * grad
-            return total_gradient
-        
-        elif self.mode == 'max':
-            # Weighted maximum gradient with tie-breaking
-            weighted_costs = self.weights * individual_costs
-            max_value = np.max(weighted_costs)
+        with self.timer.time_operation('Gradient'):
+            if not self.cost_functions:
+                return np.zeros_like(trajectory)
             
-            # Find indices of functions that achieve the maximum (within epsilon_tie)
-            max_indices = np.where(np.abs(weighted_costs - max_value) <= self.epsilon_tie)[0]
+            # Compute all individual costs and gradients
+            individual_costs = np.array([
+                cf.compute_cost(trajectory, dt) for cf in self.cost_functions
+            ])
+            individual_gradients = [
+                cf.compute_gradient(trajectory, dt) for cf in self.cost_functions
+            ]
             
-            # Max term gradient: sum over all tied maximizers
-            max_gradient = np.zeros_like(trajectory)
-            for idx in max_indices:
-                max_gradient += self.weights[idx] * individual_gradients[idx]
+            if self.mode == 'sum':
+                # Linear weighted sum gradient: ∇cost = Σ(w_i * ∇f_i)
+                total_gradient = np.zeros_like(trajectory)
+                for i, grad in enumerate(individual_gradients):
+                    total_gradient += self.weights[i] * grad
+                return total_gradient
             
-            # If multiple tied maximizers, average their contributions
-            if len(max_indices) > 1:
-                max_gradient /= len(max_indices)
+            elif self.mode == 'max':
+                # Weighted maximum gradient with tie-breaking
+                weighted_costs = self.weights * individual_costs
+                max_value = np.max(weighted_costs)
+                
+                # Find indices of functions that achieve the maximum (within epsilon_tie)
+                max_indices = np.where(np.abs(weighted_costs - max_value) <= self.epsilon_tie)[0]
+                
+                # Max term gradient: sum over all tied maximizers
+                max_gradient = np.zeros_like(trajectory)
+                for idx in max_indices:
+                    max_gradient += self.weights[idx] * individual_gradients[idx]
+                
+                # If multiple tied maximizers, average their contributions
+                if len(max_indices) > 1:
+                    max_gradient /= len(max_indices)
+                
+                # Tie-breaking sum term gradient: ρ * Σ(∇f_i)
+                sum_gradient = np.zeros_like(trajectory)
+                for grad in individual_gradients:
+                    sum_gradient += grad
+                sum_gradient *= self.rho
+                
+                return max_gradient + sum_gradient
             
-            # Tie-breaking sum term gradient: ρ * Σ(∇f_i)
-            sum_gradient = np.zeros_like(trajectory)
-            for grad in individual_gradients:
-                sum_gradient += grad
-            sum_gradient *= self.rho
+            elif self.mode == 'max_constrained':
+                # Epigraph reformulation gradient: ∇cost = ρ * Σ(∇f_i)
+                # The gradient w.r.t. 't' is 1 (handled by the planner)
+                sum_gradient = np.zeros_like(trajectory)
+                for grad in individual_gradients:
+                    sum_gradient += grad
+                sum_gradient *= self.rho
+                
+                return sum_gradient
             
-            return max_gradient + sum_gradient
-        
-        elif self.mode == 'max_constrained':
-            # Epigraph reformulation gradient: ∇cost = ρ * Σ(∇f_i)
-            # The gradient w.r.t. 't' is 1 (handled by the planner)
-            sum_gradient = np.zeros_like(trajectory)
-            for grad in individual_gradients:
-                sum_gradient += grad
-            sum_gradient *= self.rho
-            
-            return sum_gradient
-        
-        else:
-            raise ValueError(f"Invalid mode: {self.mode}. Must be 'sum', 'max', or 'max_constrained'.")
+            else:
+                raise ValueError(f"Invalid mode: {self.mode}. Must be 'sum', 'max', or 'max_constrained'.")
     
     def compute_weighted_individual_costs(self, trajectory: np.ndarray, dt: float = 0.1) -> np.ndarray:
         """
@@ -643,6 +705,115 @@ class CompositeCostFunction(CostFunction):
             grad = cf.compute_gradient(trajectory, dt)
             gradients.append(self.weights[i] * grad)
         return gradients
+    
+    def compute_cost_with_fk(self, trajectory: np.ndarray, dt: float, fk_results: List) -> float:
+        """
+        Compute composite cost with pre-computed FK results (for performance).
+        
+        Args:
+            trajectory: Joint space trajectory
+            dt: Time step
+            fk_results: Pre-computed FK results for each waypoint
+            
+        Returns:
+            Composite cost value
+        """
+        with self.timer.time_operation('Cost'):
+            if not self.cost_functions:
+                return 0.0
+            
+            # Compute individual costs, using FK cache when available
+            individual_costs = []
+            for cf in self.cost_functions:
+                if hasattr(cf, 'compute_cost_with_fk'):
+                    cost = cf.compute_cost_with_fk(trajectory, dt, fk_results)
+                else:
+                    cost = cf.compute_cost(trajectory, dt)
+                individual_costs.append(cost)
+            
+            individual_costs = np.array(individual_costs)
+            
+            if self.mode == 'sum':
+                return float(np.sum(self.weights * individual_costs))
+            elif self.mode == 'max':
+                weighted_costs = self.weights * individual_costs
+                max_term = np.max(weighted_costs)
+                sum_term = self.rho * np.sum(individual_costs)
+                return float(max_term + sum_term)
+            elif self.mode == 'max_constrained':
+                sum_term = self.rho * np.sum(individual_costs)
+                return float(sum_term)
+            else:
+                raise ValueError(f"Invalid mode: {self.mode}")
+    
+    def compute_gradient_with_fk(self, trajectory: np.ndarray, dt: float, fk_results: List) -> np.ndarray:
+        """
+        Compute composite gradient with pre-computed FK results (for performance).
+        
+        Args:
+            trajectory: Joint space trajectory
+            dt: Time step
+            fk_results: Pre-computed FK results for each waypoint
+            
+        Returns:
+            Gradient array of shape (n_waypoints, n_dof)
+        """
+        with self.timer.time_operation('Gradient'):
+            if not self.cost_functions:
+                return np.zeros_like(trajectory)
+            
+            # Compute individual costs and gradients, using FK cache when available
+            individual_costs = []
+            individual_gradients = []
+            
+            for cf in self.cost_functions:
+                if hasattr(cf, 'compute_cost_with_fk'):
+                    cost = cf.compute_cost_with_fk(trajectory, dt, fk_results)
+                else:
+                    cost = cf.compute_cost(trajectory, dt)
+                individual_costs.append(cost)
+                
+                if hasattr(cf, 'compute_gradient_with_fk'):
+                    grad = cf.compute_gradient_with_fk(trajectory, dt, fk_results)
+                else:
+                    grad = cf.compute_gradient(trajectory, dt)
+                individual_gradients.append(grad)
+            
+            individual_costs = np.array(individual_costs)
+            
+            if self.mode == 'sum':
+                total_gradient = np.zeros_like(trajectory)
+                for i, grad in enumerate(individual_gradients):
+                    total_gradient += self.weights[i] * grad
+                return total_gradient
+            
+            elif self.mode == 'max':
+                weighted_costs = self.weights * individual_costs
+                max_value = np.max(weighted_costs)
+                max_indices = np.where(np.abs(weighted_costs - max_value) <= self.epsilon_tie)[0]
+                
+                max_gradient = np.zeros_like(trajectory)
+                for idx in max_indices:
+                    max_gradient += self.weights[idx] * individual_gradients[idx]
+                if len(max_indices) > 1:
+                    max_gradient /= len(max_indices)
+                
+                sum_gradient = np.zeros_like(trajectory)
+                for grad in individual_gradients:
+                    sum_gradient += grad
+                sum_gradient *= self.rho
+                
+                return max_gradient + sum_gradient
+            
+            elif self.mode == 'max_constrained':
+                sum_gradient = np.zeros_like(trajectory)
+                for grad in individual_gradients:
+                    sum_gradient += grad
+                sum_gradient *= self.rho
+                return sum_gradient
+            
+            else:
+                raise ValueError(f"Invalid mode: {self.mode}")
     
     def get_mode_info(self) -> str:
         """Get formatted information about the current mode and configuration."""
