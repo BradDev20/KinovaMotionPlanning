@@ -92,9 +92,8 @@ class TrajectoryOptimizationDemo(ABC):
             output_filename=self.get_scene_filename()
         )
         
-    def solve_inverse_kinematics(self, kinematics, target_position=None) -> Optional[np.ndarray]:
+    def solve_inverse_kinematics(self, kinematics) -> Optional[np.ndarray]:
         """Solve inverse kinematics for the target position"""
-        target = self.define_target_position() if target_position is None else np.asarray(target_position)
         params = self.get_planning_params()
         goal_config, ik_success = kinematics.inverse_kinematics(
             self.target_position,
