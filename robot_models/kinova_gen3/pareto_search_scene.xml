@@ -21,21 +21,21 @@
     <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
   
     <!-- Virtual obstacle 1 visualization -->
-    <body name="obstacle_1" pos="0.450 0.080 0.200">
+    <body name="obstacle_1" pos="0.450 -0.200 0.200">
         <geom name="obstacle_1_geom" type="sphere" size="0.04" 
               rgba="1.0 0.2 0.2 0.6" material="" contype="0" conaffinity="0"/>
         <site name="obstacle_1_center" pos="0 0 0" size="0.005" rgba="1 0 0 1"/>
     </body>
     
     <!-- Virtual obstacle 2 visualization -->
-    <body name="obstacle_2" pos="0.450 -0.200 0.200">
+    <body name="obstacle_2" pos="0.350 0.060 0.200">
         <geom name="obstacle_2_geom" type="sphere" size="0.04" 
               rgba="1.0 0.2 0.2 0.6" material="" contype="0" conaffinity="0"/>
         <site name="obstacle_2_center" pos="0 0 0" size="0.005" rgba="1 0 0 1"/>
     </body>
     
     <!-- Target position marker -->
-    <body name="target_marker" pos="0.65 0.03 0.2">
+    <body name="target_marker" pos="0.65 0.0 0.2">
         <geom name="target_geom" type="sphere" size="0.03" 
               rgba="0.0 0.8 0.0 0.8" material="" contype="0" conaffinity="0"/>
         <site name="target_center" pos="0 0 0" size="0.005" rgba="0 1 0 1"/>

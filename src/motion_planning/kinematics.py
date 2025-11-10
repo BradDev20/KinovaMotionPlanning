@@ -8,6 +8,7 @@ import numpy as np
 import mujoco
 from scipy.optimize import minimize
 from typing import Tuple, Optional
+from .utils import PerformanceTimer
 
 
 class KinematicsSolver:
@@ -50,6 +51,9 @@ class KinematicsSolver:
         # Backup current state
         self._backup_qpos = None
         self._backup_qvel = None
+        
+        # Performance timer
+        self.timer = PerformanceTimer()
     
     def _backup_state(self):
         """Backup current MuJoCo state"""
@@ -65,19 +69,20 @@ class KinematicsSolver:
     
     def get_end_effector_pose(self, joint_positions):
         """Get the pose of the gripper center (between finger pads)."""
-        # Set joint positions and compute forward kinematics
-        self.data.qpos[:len(joint_positions)] = joint_positions
-        mujoco.mj_forward(self.model, self.data)
-        
-        # Calculate center between gripper finger pads
-        right_pad_pos = self.data.xpos[self.right_pad_body]
-        left_pad_pos = self.data.xpos[self.left_pad_body]
-        gripper_center = (right_pad_pos + left_pad_pos) / 2
-        
-        # Use gripper_base orientation (could be improved to average finger orientations)
-        gripper_base_rot = self.data.xmat[self.end_effector_body].reshape(3, 3)
-        
-        return gripper_center, gripper_base_rot
+        with self.timer.time_operation('FK'):
+            # Set joint positions and compute forward kinematics
+            self.data.qpos[:len(joint_positions)] = joint_positions
+            mujoco.mj_forward(self.model, self.data)
+            
+            # Calculate center between gripper finger pads
+            right_pad_pos = self.data.xpos[self.right_pad_body]
+            left_pad_pos = self.data.xpos[self.left_pad_body]
+            gripper_center = (right_pad_pos + left_pad_pos) / 2
+            
+            # Use gripper_base orientation (could be improved to average finger orientations)
+            gripper_base_rot = self.data.xmat[self.end_effector_body].reshape(3, 3)
+            
+            return gripper_center, gripper_base_rot
 
     def forward_kinematics(self, joint_positions):
         """Compute forward kinematics for given joint positions."""
@@ -96,48 +101,49 @@ class KinematicsSolver:
             tolerance: Position tolerance
             max_iterations: Maximum optimization iterations
         """
-        if initial_guess is None:
-            initial_guess = np.zeros(self.arm_dofs)  # 7 DOF for Kinova Gen3
-        
-        # Joint limits for Kinova Gen3
-        bounds = list(zip(self.joint_limits_lower, self.joint_limits_upper))
+        with self.timer.time_operation('IK'):
+            if initial_guess is None:
+                initial_guess = np.zeros(self.arm_dofs)  # 7 DOF for Kinova Gen3
+            
+            # Joint limits for Kinova Gen3
+            bounds = list(zip(self.joint_limits_lower, self.joint_limits_upper))
 
-        def objective(joint_positions):
-            try:
-                current_position, current_orientation = self.forward_kinematics(joint_positions)
-                
-                # Position error
-                position_error = np.linalg.norm(current_position - target_position)
-                
-                # Orientation error (if provided)
-                orientation_error = 0.0
-                if target_orientation is not None:
-                    # Use Frobenius norm of rotation matrix difference
-                    rot_diff = current_orientation - target_orientation
-                    orientation_error = np.linalg.norm(rot_diff) * 0.1  # Weight orientation less
-                
-                return position_error + orientation_error
-                
-            except Exception as e:
-                return 1e6  # Large penalty for invalid configurations
+            def objective(joint_positions):
+                try:
+                    current_position, current_orientation = self.forward_kinematics(joint_positions)
+                    
+                    # Position error
+                    position_error = np.linalg.norm(current_position - target_position)
+                    
+                    # Orientation error (if provided)
+                    orientation_error = 0.0
+                    if target_orientation is not None:
+                        # Use Frobenius norm of rotation matrix difference
+                        rot_diff = current_orientation - target_orientation
+                        orientation_error = np.linalg.norm(rot_diff) * 0.1  # Weight orientation less
+                    
+                    return position_error + orientation_error
+                    
+                except Exception as e:
+                    return 1e6  # Large penalty for invalid configurations
 
 
-        # Optimize
-        result = minimize(
-            objective,
-            initial_guess,
-            method='L-BFGS-B',  #TODO: consider using 'SLSQP' (Sequential Least Squares Programming) for constraints
-            bounds=bounds,
-            options={'maxiter': max_iterations, 'ftol': tolerance}
-        )
-        # Documentation for SLSQP found here - https://docs.scipy.org/doc/scipy/tutorial/optimize.html#sequential-least-squares-programming-slsqp-algorithm-method-slsqp
+            # Optimize
+            result = minimize(
+                objective,
+                initial_guess,
+                method='L-BFGS-B',  #TODO: consider using 'SLSQP' (Sequential Least Squares Programming) for constraints
+                bounds=bounds,
+                options={'maxiter': max_iterations, 'ftol': tolerance}
+            )
+            # Documentation for SLSQP found here - https://docs.scipy.org/doc/scipy/tutorial/optimize.html#sequential-least-squares-programming-slsqp-algorithm-method-slsqp
 
-        print(f"IK result: {result}")
-        
-        if result.success:
-            return result.x, True
-        else:
-            return initial_guess, False
+            print(f"IK result: {result}")
+            
+            if result.success:
+                return result.x, True
+            else:
+                return initial_guess, False
     
     def get_current_pose(self) -> Tuple[np.ndarray, np.ndarray]:
         """Get current end-effector pose"""
