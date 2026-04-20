@@ -13,10 +13,9 @@ Optimized version of ConstrainedTrajOptPlanner with:
 import numpy as np
 import mujoco
 import time
-from typing import List, Tuple, Callable, Optional, Dict, Any
+from typing import List, Tuple, Optional, Dict, Any
 from .constrained_trajopt import ConstrainedTrajOptPlanner
 from scipy.optimize import minimize
-from functools import lru_cache
 
 
 class CachedKinematicsSolver:
@@ -424,7 +423,7 @@ class FastTrajOptPlanner(ConstrainedTrajOptPlanner):
 
         # Create initial trajectory (use warm start if provided)
         if warm_start_trajectory is not None:
-            print(f"  Using warm start trajectory")
+            print("  Using warm start trajectory")
             # Resample warm start to match our waypoint count
             if len(warm_start_trajectory) != self.n_waypoints:
                 indices = np.linspace(0, len(warm_start_trajectory) - 1, self.n_waypoints, dtype=int)
@@ -442,7 +441,7 @@ class FastTrajOptPlanner(ConstrainedTrajOptPlanner):
             weighted_costs = self.composite_cost_function.compute_weighted_individual_costs(initial_trajectory, self.dt)
             initial_t = float(np.max(weighted_costs)) * 1.1  # 10% above max
             initial_vector = np.append(initial_vector, initial_t)
-            print(f"  Using epigraph reformulation: min_(T,t) [t + ρ*Σf_i(T)] s.t. w_i*f_i(T) ≤ t")
+            print("  Using epigraph reformulation: min_(T,t) [t + ρ*Σf_i(T)] s.t. w_i*f_i(T) ≤ t")
             print(f"  Initial t: {initial_t:.3f}")
 
         # Create bounds and constraints
@@ -462,11 +461,11 @@ class FastTrajOptPlanner(ConstrainedTrajOptPlanner):
         initial_cost = self._compute_total_cost_augmented(initial_vector)
         print(f"  Initial cost: {initial_cost:.3f}")
 
-        # Fast optimization settings
-        max_evaluations = 2000  # Lower limit
-        maxiter = 600  # Fewer iterations
-        ftol = 1e-3  # Looser tolerance
-        patience = 60  # Faster early stopping
+        # Fast optimization settings. Respect externally provided planner budgets.
+        max_evaluations = max(1, int(getattr(self, 'max_fun', 2000) or 2000))
+        maxiter = max(1, int(getattr(self, 'max_iter', 600) or 600))
+        ftol = float(getattr(self, 'f_tol', 1e-3) or 1e-3)
+        patience = max(10, min(60, maxiter))
         
         callback = self._create_callback(max_evaluations, patience)
         
@@ -526,6 +525,10 @@ class FastTrajOptPlanner(ConstrainedTrajOptPlanner):
             'iterations': self.iteration_count,
             'final_optimization_cost': float(result.fun),
             'cost_mode': self.cost_mode,
+            'slsqp_iterations': int(getattr(result, 'nit', 0) or 0),
+            'slsqp_function_evaluations': int(getattr(result, 'nfev', 0) or 0),
+            'slsqp_gradient_evaluations': int(getattr(result, 'njev', 0) or 0),
+            'slsqp_status': int(getattr(result, 'status', 0) or 0),
             'stopped_early': 'Early stopping' in result.message if hasattr(result, 'message') else False,
             'termination_reason': result.message if hasattr(result, 'message') else 'Unknown',
             'timing': timing_summary,
@@ -556,25 +559,35 @@ class FastTrajOptPlanner(ConstrainedTrajOptPlanner):
         final_vel_constraints = self._compute_velocity_constraints(final_traj_vec)
         final_acc_constraints = self._compute_acceleration_constraints(final_traj_vec)
         
-        final_vel_violations = np.sum(final_vel_constraints < -1e-6)
-        final_acc_violations = np.sum(final_acc_constraints < -1e-6)
+        final_vel_violations = int(np.sum(final_vel_constraints < -1e-6))
+        final_acc_violations = int(np.sum(final_acc_constraints < -1e-6))
+        max_vel_deficit = float(np.max(np.maximum(-final_vel_constraints, 0.0))) if final_vel_constraints.size else 0.0
+        max_acc_deficit = float(np.max(np.maximum(-final_acc_constraints, 0.0))) if final_acc_constraints.size else 0.0
+        total_violations = final_vel_violations + final_acc_violations
+
+        metadata['dynamic_constraints'] = {
+            'velocity_violations': final_vel_violations,
+            'acceleration_violations': final_acc_violations,
+            'max_velocity_deficit': max_vel_deficit,
+            'max_acceleration_deficit': max_acc_deficit,
+        }
         
         print(f"  Final violations: {final_vel_violations} velocity, {final_acc_violations} acceleration")
         
         if self._is_max_constrained_mode() and final_t is not None:
             print(f"  Final t (max bound): {final_t:.3f}")
 
-        if result.success or result.fun < initial_cost * 0.9:
+        optimization_acceptable = bool(result.success or result.fun < initial_cost * 0.9)
+        if optimization_acceptable:
             optimized_trajectory = self._vector_to_trajectory(final_traj_vec)
             trajectory_list = [waypoint for waypoint in optimized_trajectory]
             
-            total_violations = final_vel_violations + final_acc_violations
             if total_violations == 0:
-                print(f"  ✓ All constraints satisfied!")
+                print("  ✓ All constraints satisfied!")
             else:
-                print(f"  ⚠ Some constraints violated (may be acceptable)")
+                print("  ⚠ Some constraints violated (may be acceptable)")
             
-            return trajectory_list, True, metadata
+            return trajectory_list, total_violations == 0, metadata
         else:
             print(f"TrajOpt optimization failed: {result.message}")
             initial_trajectory_list = [waypoint for waypoint in initial_trajectory]

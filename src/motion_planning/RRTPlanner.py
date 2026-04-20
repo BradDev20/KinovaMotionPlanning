@@ -1,6 +1,6 @@
 import numpy as np
 import mujoco
-from typing import List, Tuple, Callable, Optional, Dict, Any
+from typing import List, Tuple, Callable
 
 class RRTPlanner:
     """Rapidly-exploring Random Tree (RRT) planner for joint space planning"""

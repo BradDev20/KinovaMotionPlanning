@@ -1,6 +1,6 @@
 import numpy as np
 import mujoco
-from typing import List, Tuple, Callable, Optional, Dict, Any
+from typing import List, Tuple, Callable, Optional
 from .cost_functions import CostFunction, CompositeCostFunction
 from .utils import PerformanceTimer
 from scipy.optimize import minimize
@@ -72,7 +72,7 @@ class UnconstrainedTrajOptPlanner:
         if self.cost_mode != 'composite':
             raise RuntimeError("set_composite_cost_function() only available in composite mode.")
         self.composite_cost_function = composite_fn
-        print(f"  ✅ Composite cost function configured:")
+        print("  ✅ Composite cost function configured:")
         print(f"     {composite_fn.get_mode_info()}")
 
     def setup_composite_cost(self, 

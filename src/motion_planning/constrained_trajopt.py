@@ -1,10 +1,110 @@
 import numpy as np
 import mujoco
 import time
-from typing import List, Tuple, Callable, Optional, Dict, Any
-from .cost_functions import CostFunction
+from typing import List, Tuple, Optional, Dict, Any
+from src.numba_compat import numba_njit
 from .unconstrained_trajopt import UnconstrainedTrajOptPlanner
 from scipy.optimize import minimize
+
+
+@numba_njit(cache=True)
+def _velocity_constraints_kernel(trajectory: np.ndarray, dt: float, max_velocity: float) -> np.ndarray:
+    n_waypoints, n_dof = trajectory.shape
+    if n_waypoints < 2:
+        return np.empty(0, dtype=np.float64)
+
+    inv_dt = 1.0 / float(dt)
+    constraints = np.empty((n_waypoints - 1) * n_dof, dtype=np.float64)
+    row_index = 0
+    for waypoint_index in range(n_waypoints - 1):
+        for joint_index in range(n_dof):
+            velocity = (float(trajectory[waypoint_index + 1, joint_index]) - float(trajectory[waypoint_index, joint_index])) * inv_dt
+            constraints[row_index] = float(max_velocity) - abs(velocity)
+            row_index += 1
+    return constraints
+
+
+@numba_njit(cache=True)
+def _acceleration_constraints_kernel(trajectory: np.ndarray, dt: float, max_acceleration: float) -> np.ndarray:
+    n_waypoints, n_dof = trajectory.shape
+    if n_waypoints < 3:
+        return np.empty(0, dtype=np.float64)
+
+    coeff = 1.0 / (float(dt) * float(dt))
+    constraints = np.empty((n_waypoints - 2) * n_dof, dtype=np.float64)
+    row_index = 0
+    for waypoint_index in range(n_waypoints - 2):
+        for joint_index in range(n_dof):
+            acceleration = (
+                float(trajectory[waypoint_index + 2, joint_index])
+                - 2.0 * float(trajectory[waypoint_index + 1, joint_index])
+                + float(trajectory[waypoint_index, joint_index])
+            ) * coeff
+            constraints[row_index] = float(max_acceleration) - abs(acceleration)
+            row_index += 1
+    return constraints
+
+
+@numba_njit(cache=True)
+def _velocity_constraint_jacobian_kernel(trajectory: np.ndarray, dt: float) -> np.ndarray:
+    n_waypoints, n_dof = trajectory.shape
+    total_vars = n_waypoints * n_dof
+    if n_waypoints < 2:
+        return np.empty((0, total_vars), dtype=np.float64)
+
+    inv_dt = 1.0 / float(dt)
+    jacobian = np.zeros(((n_waypoints - 1) * n_dof, total_vars), dtype=np.float64)
+    for waypoint_index in range(n_waypoints - 1):
+        for joint_index in range(n_dof):
+            row_index = waypoint_index * n_dof + joint_index
+            velocity = (float(trajectory[waypoint_index + 1, joint_index]) - float(trajectory[waypoint_index, joint_index])) * inv_dt
+            velocity_sign = 0.0
+            if velocity > 0.0:
+                velocity_sign = 1.0
+            elif velocity < 0.0:
+                velocity_sign = -1.0
+            if velocity_sign == 0.0:
+                continue
+
+            start_idx = waypoint_index * n_dof + joint_index
+            end_idx = (waypoint_index + 1) * n_dof + joint_index
+            jacobian[row_index, start_idx] = velocity_sign * inv_dt
+            jacobian[row_index, end_idx] = -velocity_sign * inv_dt
+    return jacobian
+
+
+@numba_njit(cache=True)
+def _acceleration_constraint_jacobian_kernel(trajectory: np.ndarray, dt: float) -> np.ndarray:
+    n_waypoints, n_dof = trajectory.shape
+    total_vars = n_waypoints * n_dof
+    if n_waypoints < 3:
+        return np.empty((0, total_vars), dtype=np.float64)
+
+    coeff = 1.0 / (float(dt) * float(dt))
+    jacobian = np.zeros(((n_waypoints - 2) * n_dof, total_vars), dtype=np.float64)
+    for waypoint_index in range(n_waypoints - 2):
+        for joint_index in range(n_dof):
+            row_index = waypoint_index * n_dof + joint_index
+            acceleration = (
+                float(trajectory[waypoint_index + 2, joint_index])
+                - 2.0 * float(trajectory[waypoint_index + 1, joint_index])
+                + float(trajectory[waypoint_index, joint_index])
+            ) * coeff
+            acceleration_sign = 0.0
+            if acceleration > 0.0:
+                acceleration_sign = 1.0
+            elif acceleration < 0.0:
+                acceleration_sign = -1.0
+            if acceleration_sign == 0.0:
+                continue
+
+            waypoint_i_idx = waypoint_index * n_dof + joint_index
+            waypoint_i1_idx = (waypoint_index + 1) * n_dof + joint_index
+            waypoint_i2_idx = (waypoint_index + 2) * n_dof + joint_index
+            jacobian[row_index, waypoint_i_idx] = -acceleration_sign * coeff
+            jacobian[row_index, waypoint_i1_idx] = 2.0 * acceleration_sign * coeff
+            jacobian[row_index, waypoint_i2_idx] = -acceleration_sign * coeff
+    return jacobian
 
 
 class ConstrainedTrajOptPlanner(UnconstrainedTrajOptPlanner):
@@ -85,21 +185,7 @@ class ConstrainedTrajOptPlanner(UnconstrainedTrajOptPlanner):
         """
         with self.timer.time_operation('Constraint_Eval'):
             trajectory = self._vector_to_trajectory(trajectory_vector)
-            
-            if trajectory.shape[0] < 2:
-                return np.array([])
-            
-            # Compute velocities (finite differences)
-            velocities = np.diff(trajectory, axis=0) / self.dt
-            
-            # Compute velocity magnitudes for each waypoint transition
-            velocity_magnitudes = np.linalg.norm(velocities, axis=1)
-            
-            # Constraint: max_velocity - |velocity| >= 0
-            # Negative values indicate constraint violations
-            constraints = self.max_velocity - velocity_magnitudes
-            
-            return constraints
+            return _velocity_constraints_kernel(trajectory, float(self.dt), float(self.max_velocity))
 
     def _compute_acceleration_constraints(self, trajectory_vector: np.ndarray) -> np.ndarray:
         """
@@ -108,21 +194,7 @@ class ConstrainedTrajOptPlanner(UnconstrainedTrajOptPlanner):
         """
         with self.timer.time_operation('Constraint_Eval'):
             trajectory = self._vector_to_trajectory(trajectory_vector)
-            
-            if trajectory.shape[0] < 3:
-                return np.array([])
-            
-            # Compute accelerations (second-order finite differences)
-            accelerations = np.diff(trajectory, n=2, axis=0) / (self.dt ** 2)
-            
-            # Compute acceleration magnitudes for each waypoint
-            acceleration_magnitudes = np.linalg.norm(accelerations, axis=1)
-            
-            # Constraint: max_acceleration - |acceleration| >= 0
-            # Negative values indicate constraint violations
-            constraints = self.max_acceleration - acceleration_magnitudes
-            
-            return constraints
+            return _acceleration_constraints_kernel(trajectory, float(self.dt), float(self.max_acceleration))
 
     def _compute_velocity_constraint_jacobian(self, trajectory_vector: np.ndarray) -> np.ndarray:
         """
@@ -130,33 +202,7 @@ class ConstrainedTrajOptPlanner(UnconstrainedTrajOptPlanner):
         """
         with self.timer.time_operation('Constraint_Jacobian'):
             trajectory = self._vector_to_trajectory(trajectory_vector)
-            
-            if trajectory.shape[0] < 2:
-                return np.array([]).reshape(0, len(trajectory_vector))
-            
-            n_velocity_constraints = trajectory.shape[0] - 1
-            jacobian = np.zeros((n_velocity_constraints, len(trajectory_vector)))
-            
-            # Compute velocities
-            velocities = np.diff(trajectory, axis=0) / self.dt
-            velocity_magnitudes = np.linalg.norm(velocities, axis=1)
-            
-            for i in range(n_velocity_constraints):
-                if velocity_magnitudes[i] > 1e-8:  # Avoid division by zero
-                    # Gradient of -|velocity_i| with respect to trajectory
-                    vel_unit = velocities[i] / velocity_magnitudes[i]
-                    
-                    # Velocity depends on waypoints i and i+1
-                    start_idx = i * self.n_dof
-                    end_idx = (i + 1) * self.n_dof
-                    
-                    # Contribution from waypoint i (negative because velocity = (q_{i+1} - q_i)/dt)
-                    jacobian[i, start_idx:start_idx + self.n_dof] = vel_unit / self.dt
-                    
-                    # Contribution from waypoint i+1 (positive)
-                    jacobian[i, end_idx:end_idx + self.n_dof] = -vel_unit / self.dt
-            
-            return jacobian
+            return _velocity_constraint_jacobian_kernel(trajectory, float(self.dt))
 
     def _compute_acceleration_constraint_jacobian(self, trajectory_vector: np.ndarray) -> np.ndarray:
         """
@@ -164,42 +210,7 @@ class ConstrainedTrajOptPlanner(UnconstrainedTrajOptPlanner):
         """
         with self.timer.time_operation('Constraint_Jacobian'):
             trajectory = self._vector_to_trajectory(trajectory_vector)
-            
-            if trajectory.shape[0] < 3:
-                return np.array([]).reshape(0, len(trajectory_vector))
-            
-            n_acceleration_constraints = trajectory.shape[0] - 2
-            jacobian = np.zeros((n_acceleration_constraints, len(trajectory_vector)))
-            
-            # Compute accelerations
-            accelerations = np.diff(trajectory, n=2, axis=0) / (self.dt ** 2)
-            acceleration_magnitudes = np.linalg.norm(accelerations, axis=1)
-            
-            for i in range(n_acceleration_constraints):
-                if acceleration_magnitudes[i] > 1e-8:  # Avoid division by zero
-                    # Gradient of -|acceleration_i| with respect to trajectory
-                    acc_unit = accelerations[i] / acceleration_magnitudes[i]
-                    
-                    # Acceleration depends on waypoints i, i+1, and i+2
-                    # acceleration = (q_{i+2} - 2*q_{i+1} + q_i) / dt^2
-                    
-                    waypoint_i_idx = i * self.n_dof
-                    waypoint_i1_idx = (i + 1) * self.n_dof
-                    waypoint_i2_idx = (i + 2) * self.n_dof
-                    
-                    # Coefficients from second-order finite difference
-                    coeff = 1.0 / (self.dt ** 2)
-                    
-                    # Contribution from waypoint i
-                    jacobian[i, waypoint_i_idx:waypoint_i_idx + self.n_dof] = -acc_unit * coeff
-                    
-                    # Contribution from waypoint i+1 (coefficient is -2)
-                    jacobian[i, waypoint_i1_idx:waypoint_i1_idx + self.n_dof] = acc_unit * 2 * coeff
-                    
-                    # Contribution from waypoint i+2
-                    jacobian[i, waypoint_i2_idx:waypoint_i2_idx + self.n_dof] = -acc_unit * coeff
-            
-            return jacobian
+            return _acceleration_constraint_jacobian_kernel(trajectory, float(self.dt))
 
     def enable_fixed_z_constraint(self, kinematics_solver, target_z: float, tol: float = 1e-3):
         """Enable |z(q)-target_z| <= tol for (most) waypoints."""
@@ -505,7 +516,7 @@ class ConstrainedTrajOptPlanner(UnconstrainedTrajOptPlanner):
             weighted_costs = self.composite_cost_function.compute_weighted_individual_costs(initial_trajectory, self.dt)
             initial_t = float(np.max(weighted_costs)) * 1.1  # 10% above max
             initial_vector = np.append(initial_vector, initial_t)
-            print(f"  Using epigraph reformulation: min_(T,t) [t + ρ*Σf_i(T)] s.t. w_i*f_i(T) ≤ t")
+            print("  Using epigraph reformulation: min_(T,t) [t + ρ*Σf_i(T)] s.t. w_i*f_i(T) ≤ t")
             print(f"  Initial t: {initial_t:.3f}")
 
         # Create bounds
@@ -537,7 +548,7 @@ class ConstrainedTrajOptPlanner(UnconstrainedTrajOptPlanner):
         if vel_violations > 0 or acc_violations > 0:
             print(f"  Initial trajectory violates {vel_violations} velocity and {acc_violations} acceleration constraints")
         else:
-            print(f"  Initial trajectory satisfies all constraints")
+            print("  Initial trajectory satisfies all constraints")
         
         # Check epigraph constraint violations if in max_constrained mode
         if self._is_max_constrained_mode():
@@ -546,7 +557,7 @@ class ConstrainedTrajOptPlanner(UnconstrainedTrajOptPlanner):
             if epigraph_violations > 0:
                 print(f"  Initial trajectory violates {epigraph_violations} epigraph constraints")
             else:
-                print(f"  Initial trajectory satisfies all epigraph constraints")
+                print("  Initial trajectory satisfies all epigraph constraints")
 
         # Adaptive optimization settings based on cost mode
         # Sum mode needs more iterations at extreme weights due to unbalanced gradients
@@ -682,9 +693,9 @@ class ConstrainedTrajOptPlanner(UnconstrainedTrajOptPlanner):
                 total_violations += final_epigraph_violations
             
             if total_violations == 0:
-                print(f"  ✓ All constraints satisfied!")
+                print("  ✓ All constraints satisfied!")
             else:
-                print(f"  ⚠ Some constraints still violated (numerical tolerance)")
+                print("  ⚠ Some constraints still violated (numerical tolerance)")
             
             return trajectory_list, True, metadata
         else:
@@ -761,7 +772,7 @@ class ConstrainedTrajOptPlanner(UnconstrainedTrajOptPlanner):
             timing_summary = self._collect_timing_statistics()
         
         print(f"\n{'='*70}")
-        print(f"Performance Timing Summary")
+        print("Performance Timing Summary")
         print(f"{'='*70}")
         print(f"Total Optimization Time: {timing_summary['total_time']:.3f}s")
         print(f"{'-'*70}")

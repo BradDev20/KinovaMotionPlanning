@@ -7,7 +7,7 @@ Limits are set according to the specifications found here: https://github.com/NV
 import numpy as np
 import mujoco
 from scipy.optimize import minimize
-from typing import Tuple, Optional
+from typing import Tuple
 from .utils import PerformanceTimer
 
 
@@ -124,7 +124,7 @@ class KinematicsSolver:
                     
                     return position_error + orientation_error
                     
-                except Exception as e:
+                except Exception:
                     return 1e6  # Large penalty for invalid configurations
 
 

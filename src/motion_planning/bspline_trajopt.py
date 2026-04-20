@@ -1,11 +1,9 @@
-from ast import arguments
 import numpy as np
 import mujoco
 import time
-from typing import List, Tuple, Callable, Optional, Dict, Any
-from .cost_functions import CostFunction
+from typing import List, Tuple, Optional, Dict, Any
 from .unconstrained_trajopt import UnconstrainedTrajOptPlanner
-from scipy.optimize import minimize, LinearConstraint, Bounds
+from scipy.optimize import minimize, LinearConstraint
 from .spline import make_uniform_clamped_knots, first_diff_matrix, second_diff_matrix, bspline_basis_matrices
 import scipy.sparse as sparse
 
@@ -108,7 +106,7 @@ class SplineBasedTrajOptPlanner(UnconstrainedTrajOptPlanner):
                 trajectory = self._create_cartesian_interpolated_trajectory(
                     start_config, goal_config, kinematics_solver
                 )
-                print(f"  ✓ Using Cartesian-space interpolated initial trajectory")
+                print("  ✓ Using Cartesian-space interpolated initial trajectory")
                 return trajectory
             except Exception as e:
                 print(f"  ⚠ Cartesian interpolation failed ({e}), falling back to joint-space")
@@ -119,7 +117,7 @@ class SplineBasedTrajOptPlanner(UnconstrainedTrajOptPlanner):
             alpha = i / (self.n_waypoints - 1)
             trajectory[i] = (1 - alpha) * start_config + alpha * goal_config
         
-        print(f"  Using joint-space linear interpolated initial trajectory")
+        print("  Using joint-space linear interpolated initial trajectory")
         return trajectory
     
     def _create_cartesian_interpolated_trajectory(self, start_config: np.ndarray, 
@@ -548,7 +546,7 @@ class SplineBasedTrajOptPlanner(UnconstrainedTrajOptPlanner):
             weighted_costs = self.composite_cost_function.compute_weighted_individual_costs(initial_trajectory, self.dt)
             initial_t = float(np.max(weighted_costs)) * 1.1  # 10% above max
             initial_vector = np.append(initial_vector, initial_t)
-            print(f"  Using epigraph reformulation: min_(T,t) [t + ρ*Σf_i(T)] s.t. w_i*f_i(T) ≤ t")
+            print("  Using epigraph reformulation: min_(T,t) [t + ρ*Σf_i(T)] s.t. w_i*f_i(T) ≤ t")
             print(f"  Initial t: {initial_t:.3f}")
 
         # Create bounds
@@ -572,12 +570,12 @@ class SplineBasedTrajOptPlanner(UnconstrainedTrajOptPlanner):
         # Debug: Check if cost function sees interpolated trajectory correctly
         if self.cost_mode == 'composite' and self.composite_cost_function is not None:
             initial_traj_for_cost = self._vector_to_trajectory(initial_vector if not self._is_max_constrained_mode() else initial_vector[:-1])
-            print(f"\n  Initial trajectory for cost evaluation:")
+            print("\n  Initial trajectory for cost evaluation:")
             print(f"    Control points: {self.n_waypoints}")
             print(f"    Interpolated points for cost: {initial_traj_for_cost.shape[0]}")
             
             # Compute individual costs
-            print(f"  Initial cost breakdown:")
+            print("  Initial cost breakdown:")
             for i, cost_fn in enumerate(self.composite_cost_function.cost_functions):
                 cost_val = cost_fn.compute_cost(initial_traj_for_cost, self.dt)
                 weight = self.composite_cost_function.weights[i]
@@ -590,7 +588,7 @@ class SplineBasedTrajOptPlanner(UnconstrainedTrajOptPlanner):
             print(f"    Min gradient element: {np.min(np.abs(initial_grad)):.6f}")
             
             # Gradient check: Verify gradient direction reduces cost
-            print(f"\n  Gradient sanity check:")
+            print("\n  Gradient sanity check:")
             eps = 1e-5
             test_vector = initial_vector if not self._is_max_constrained_mode() else initial_vector[:-1]
             test_step = -eps * initial_grad / np.linalg.norm(initial_grad)  # Small step in negative gradient direction
@@ -601,7 +599,7 @@ class SplineBasedTrajOptPlanner(UnconstrainedTrajOptPlanner):
             print(f"    Cost after small gradient step: {cost_perturbed:.6f}")
             print(f"    Change: {cost_perturbed - cost_original:.6e} (should be negative)")
             if cost_perturbed >= cost_original:
-                print(f"    ⚠ WARNING: Gradient may be incorrect (cost increased after gradient step)!")
+                print("    ⚠ WARNING: Gradient may be incorrect (cost increased after gradient step)!")
         
         # Check epigraph constraint violations if in max_constrained mode
         if self._is_max_constrained_mode():
@@ -610,7 +608,7 @@ class SplineBasedTrajOptPlanner(UnconstrainedTrajOptPlanner):
             if epigraph_violations > 0:
                 print(f"  Initial trajectory violates {epigraph_violations} epigraph constraints")
             else:
-                print(f"  Initial trajectory satisfies all epigraph constraints")
+                print("  Initial trajectory satisfies all epigraph constraints")
 
         max_evaluations = 3500
         maxiter = 1000
@@ -705,7 +703,7 @@ class SplineBasedTrajOptPlanner(UnconstrainedTrajOptPlanner):
         q_fine[-1] = goal_config
         
         # Check boundary constraint satisfaction
-        print(f"\n  Boundary constraint verification:")
+        print("\n  Boundary constraint verification:")
         t_boundary = np.array([0.0, self.T])
         B_boundary, _, _ = bspline_basis_matrices(t_boundary, self.knots, self.degree)
         q_boundary = B_boundary @ C_opt  # What the constraint enforces
@@ -722,18 +720,18 @@ class SplineBasedTrajOptPlanner(UnconstrainedTrajOptPlanner):
             b_end_expected[2*j + 1] = goal_config[j]
         
         constraint_violation = constraint_value - b_end_expected
-        print(f"    Constraint violation (should be ~0):")
+        print("    Constraint violation (should be ~0):")
         print(f"      Max abs violation: {np.max(np.abs(constraint_violation)):.6e}")
         print(f"      RMS violation: {np.sqrt(np.mean(constraint_violation**2)):.6e}")
-        print(f"    Actual boundary from B-spline:")
+        print("    Actual boundary from B-spline:")
         print(f"      Start: {q_boundary[0]}")
         print(f"      Goal:  {q_boundary[1]}")
-        print(f"    Expected boundary:")
+        print("    Expected boundary:")
         print(f"      Start: {start_config}")
         print(f"      Goal:  {goal_config}")
         
         # Verify start/end positions
-        print(f"\n  Trajectory verification:")
+        print("\n  Trajectory verification:")
         print(f"    Start config (expected): {start_config}")
         print(f"    Start config (actual):   {q_fine[0]}")
         print(f"    Start error: {np.linalg.norm(q_fine[0] - start_config):.6f}")
@@ -744,14 +742,14 @@ class SplineBasedTrajOptPlanner(UnconstrainedTrajOptPlanner):
         # Analyze control point movement
         initial_control_points = self._control_points_from_vector(self._trajectory_to_vector(initial_trajectory))
         control_point_movement = np.linalg.norm(C_opt - initial_control_points, axis=1)
-        print(f"\n  Control point analysis:")
+        print("\n  Control point analysis:")
         print(f"    Number of control points: {C_opt.shape[0]}")
         print(f"    Avg movement: {np.mean(control_point_movement):.4f} rad")
         print(f"    Max movement: {np.max(control_point_movement):.4f} rad (point {np.argmax(control_point_movement)})")
         print(f"    Min movement: {np.min(control_point_movement):.4f} rad (point {np.argmin(control_point_movement)})")
         
         # Verify B-spline is creating smooth curves (not just passing through control points)
-        print(f"\n  B-spline interpolation verification:")
+        print("\n  B-spline interpolation verification:")
         print(f"    Control points shape: {C_opt.shape}")
         print(f"    Interpolated trajectory shape: {q_fine.shape}")
         print(f"    First control point: {C_opt[0]}")
@@ -763,7 +761,7 @@ class SplineBasedTrajOptPlanner(UnconstrainedTrajOptPlanner):
         
         # Check final costs
         if self.cost_mode == 'composite' and self.composite_cost_function is not None:
-            print(f"\n  Final cost breakdown:")
+            print("\n  Final cost breakdown:")
             for i, cost_fn in enumerate(self.composite_cost_function.cost_functions):
                 cost_val = cost_fn.compute_cost(np.array(trajectory_list), self.dt)
                 weight = self.composite_cost_function.weights[i]
@@ -844,7 +842,7 @@ class SplineBasedTrajOptPlanner(UnconstrainedTrajOptPlanner):
             timing_summary = self._collect_timing_statistics()
         
         print(f"\n{'='*70}")
-        print(f"Performance Timing Summary")
+        print("Performance Timing Summary")
         print(f"{'='*70}")
         print(f"Total Optimization Time: {timing_summary['total_time']:.3f}s")
         print(f"{'-'*70}")

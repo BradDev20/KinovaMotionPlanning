@@ -72,14 +72,14 @@
     <material name="black" rgba="0.149 0.149 0.149 1"/>
 
     <!-- Robotiq 2F-85 gripper meshes -->
-    <mesh class="2f85" name="gripper_base_mount" file="../../../../robotiq_2f85/assets/base_mount.stl"/>
-    <mesh class="2f85" name="gripper_base" file="../../../../robotiq_2f85/assets/base.stl"/>
-    <mesh class="2f85" name="gripper_driver" file="../../../../robotiq_2f85/assets/driver.stl"/>
-    <mesh class="2f85" name="gripper_coupler" file="../../../../robotiq_2f85/assets/coupler.stl"/>
-    <mesh class="2f85" name="gripper_follower" file="../../../../robotiq_2f85/assets/follower.stl"/>
-    <mesh class="2f85" name="gripper_pad" file="../../../../robotiq_2f85/assets/pad.stl"/>
-    <mesh class="2f85" name="gripper_silicone_pad" file="../../../../robotiq_2f85/assets/silicone_pad.stl"/>
-    <mesh class="2f85" name="gripper_spring_link" file="../../../../robotiq_2f85/assets/spring_link.stl"/>
+    <mesh class="2f85" name="gripper_base_mount" file="../../robotiq_2f85/assets/base_mount.stl"/>
+    <mesh class="2f85" name="gripper_base" file="../../robotiq_2f85/assets/base.stl"/>
+    <mesh class="2f85" name="gripper_driver" file="../../robotiq_2f85/assets/driver.stl"/>
+    <mesh class="2f85" name="gripper_coupler" file="../../robotiq_2f85/assets/coupler.stl"/>
+    <mesh class="2f85" name="gripper_follower" file="../../robotiq_2f85/assets/follower.stl"/>
+    <mesh class="2f85" name="gripper_pad" file="../../robotiq_2f85/assets/pad.stl"/>
+    <mesh class="2f85" name="gripper_silicone_pad" file="../../robotiq_2f85/assets/silicone_pad.stl"/>
+    <mesh class="2f85" name="gripper_spring_link" file="../../robotiq_2f85/assets/spring_link.stl"/>
   </asset>
 
   <worldbody>

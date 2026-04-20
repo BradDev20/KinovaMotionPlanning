@@ -1,6 +1,5 @@
 import numpy as np
-import mujoco
-from typing import List, Tuple, Callable, Optional, Dict, Any
+from typing import List, Tuple, Optional
 from .kinematics import KinematicsSolver
 from .utils import Obstacle, PerformanceTimer
 
@@ -578,7 +577,7 @@ class CompositeCostFunction(CostFunction):
         self.rho = rho
         self.epsilon_tie = epsilon_tie
         
-        print(f"Composite cost function initialized:")
+        print("Composite cost function initialized:")
         print(f"     Mode: {mode.upper()}")
         print(f"     Functions: {len(cost_functions)}")
         print(f"     Original weights: {[f'{w:.1f}' for w in self.original_weights]}")
@@ -586,7 +585,7 @@ class CompositeCostFunction(CostFunction):
         if mode in ['max', 'max_constrained']:
             print(f"     Tie-breaking parameter ρ: {rho}")
         if mode == 'max_constrained':
-            print(f"     Using epigraph reformulation: max moved to constraints")
+            print("     Using epigraph reformulation: max moved to constraints")
     
     def compute_cost(self, trajectory: np.ndarray, dt: float = 0.1) -> float:
         """Compute composite cost using specified mode."""

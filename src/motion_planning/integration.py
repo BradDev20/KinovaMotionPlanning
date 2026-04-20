@@ -4,7 +4,7 @@ Integration module for motion planning with MuJoCo
 
 import numpy as np
 import mujoco
-from typing import List, Tuple, Optional, Callable
+from typing import List, Tuple, Optional
 from .kinematics import KinematicsSolver
 from .planners import RRTPlanner, MotionPlannerFactory
 

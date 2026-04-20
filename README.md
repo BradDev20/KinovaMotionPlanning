@@ -1,146 +1,122 @@
-# Motion Planning for Kinova Gen3 in Mujuco
+# Motion Planning for Kinova Gen3 in MuJoCo
+
 Authors: Connor Mattson, Zohre Karimi, Atharv Belsare
 
-## TL;DR
-Just run this:
-```
-pip install -r requirements.txt
-python -m src.examples.pareto_search --cost-mode sum  # Weighted Sum
-python -m src.examples.pareto_search --cost-mode max  # Weighted Maximum
-```
+## Quickstart
 
-## Requirements
-Python 3.10
-OS: Linux or MacOS. The code has not been tested for Windows.
+Run commands from the repo root with your Python environment already activated.
 
-**MacOS:**
-If you are running this code on Mac, you will likely need to run each of the lines of code in this file with the special alias "mjpython" instead of "python"
+The documented `python -m src.cli ...` commands are shell-neutral and intended to work from bash/zsh on macOS and Linux as well as from PowerShell on Windows.
 
-## Installation
+Install dependencies:
 
-First, install mujuco if you haven't yet.
-```
+```bash
 pip install -r requirements.txt
 ```
 
-### Test Loading Robot Model + Gripper
+Check that MuJoCo and the robot model load:
 
-Check that the robot model is loading correctly by running the following command.
-
-```
-python -m src.examples.gen3
+```bash
+python -m src.cli check
 ```
 
-You should see a mujoco model that looks like this:
-![image](docs/media/viewer.png)
+Launch the Gen3 viewer sanity check:
 
-If you get an error while running this, it is likely that your mujoco is not correctly installed, check [https://github.com/google-deepmind/mujoco_menagerie?tab=readme-ov-file#prerequisites] for more.
-
-### Test Simulation, Gravity Compensation
-
-To set the robot to a "home" position and test forward simulation with velocity control, run the following command
-
-```
-python -m src.examples.init_home
+```bash
+python -m src.cli check --viewer
 ```
 
-you should see the robot controlling the joints to hold perfectly still (gravity compensation).
+Legacy demos and ad hoc visualization scripts have been archived under `src/legacy/`.
 
-### Test Velocity Control
-As a robotics researcher, we'd really like to see the robot move. Let's make sure we can make it move with the following test.
+## Unified CLI
 
-```
-python -m src.examples.test_vel_ctrl
-```
+The primary user-facing entrypoint is:
 
-<!-- ## Sample-based Motion Planning - RRT
-
-[//]: # (Test naive RRT to go to a couple of joint positions)
-
-[//]: # (```)
-
-[//]: # (python -m src.examples.working_motion_demo)
-
-[//]: # (```)
-
-[//]: # (You will see the robot moving around as it navigates to some nearby joint states.)
-
-Test RRT to go to a rendered goal position in EE space
-```
-python -m src.examples.rrt_demo
-```
-You will see a rendered green sphere that the robot is trying to move to, and the robot will plan a path to the sphere using RRT. See rendering below.
-![image](docs/media/reached_goal_pos.png) -->
-
-## Cost-based Motion Planning
-In order to instantiate multiple objectives, we need to represent the moiton planning problem as the minimization of a cost function.
-
-### Unconstrained Motion Planning
-A simple example of weighted planning can be ran with
-```
-python -m src.examples.unconstrained_optim
+```bash
+python -m src.cli --help
 ```
 
-### Constraint-based MP
-To test constraint-based optimization that encodes velocity, accel., and goals as constraints, rather than cost features.
-```
-python -m src.examples.constrained_optim
-```
+Main workflows:
 
-### Pareto Line Search
-You can sweep over the different combinations of weights to trade off between safety and path length with the following command
-```
-python -m src.examples.pareto_search
-```
-
-To use a weighted maximization (rather than a weighted sum), modify the command line arguments
-```
-python -m src.examples.pareto_search --cost-mode max
+```bash
+python -m src.cli collect --run bench_culdesac_t30_a11_r5_20260413 --mode max --family culdesac_escape
+python -m src.cli train --run bench_culdesac_t30_a11_r5_20260413 --mode max
+python -m src.cli eval --run bench_culdesac_t30_a11_r5_20260413 --mode max
+python -m src.cli replay --run bench_culdesac_t30_a11_r5_20260413 --mode max --task task_0003 --alpha 0.5
+python -m src.cli compare --run bench_culdesac_t30_a11_r5_20260413
+python -m src.cli pareto --run bench_culdesac_t30_a11_r5_20260413
 ```
 
-For help with this CLI,
-```
-python -m src.examples.pareto_search --help
-```
+## Run Layout
 
-### Pareto Front Visualization
+New runs default to a flattened layout under `data/runs`:
 
-To visualize the trade-off between trajectory length and obstacle avoidance:
-
-#### Step 1: Generate CSV Results
-
-Run the Pareto search and save results:
-```
-python -m src.examples.pareto_search --cost-mode sum --csv-file <PATH_TO_REPO>/src/pareto_data_and_results/tradeoff_data.csv
-```
-
-This creates a file at:
-```
-<PATH_TO_REPO>src/pareto_data_and_results/tradeoff_data.csv
+```text
+data/runs/<run-name>/
+  compare/
+  max/
+    dataset/
+    checkpoints/
+    evaluation/
+  sum/
+    dataset/
+    checkpoints/
+    evaluation/
 ```
 
-#### Step 2: Plot the Pareto Front
+Examples:
 
-Visualize the results with:
-```
-python Pareto_front_visualizer.py \
-    --input_csv <PATH_TO_REPO>/src/pareto_data_and_results/tradeoff_data.csv \
-    --output_folder <PATH_TO_REPO>/src/pareto_data_and_results \
-    --cost_mode max
-```
-
-Optional arguments:
-```
---output_filename pareto_front_max.png
+```text
+data/runs/bench_culdesac_t30_a11_r5_20260413/max/dataset
+data/runs/bench_culdesac_t30_a11_r5_20260413/max/checkpoints/max_iql
+data/runs/bench_culdesac_t30_a11_r5_20260413/max/evaluation
+data/runs/bench_culdesac_t30_a11_r5_20260413/compare
 ```
 
-#### Plot Details
+Legacy runs under `data/morl/...` are still supported when you pass explicit paths.
 
-- **X-axis**: Trajectory Length Cost  
-- **Y-axis**: Obstacle Closeness Cost  
-- **Color**: Alpha (trade-off weight from 0 to 1)
+## Common Commands
 
-Example:
-![Pareto Front Visualization](docs/media/Pareto_front_example.png)
+Collect a legal MORL dataset:
 
+```bash
+python -m src.cli collect --run bench_nonconvex_t10_a7_r4_20260413 --mode max --family mixed --regime nonconvex --task-count 10 --alpha-count 7 --restart-count 4
+```
 
+Train from the standard flattened dataset path:
+
+```bash
+python -m src.cli train --run bench_nonconvex_t10_a7_r4_20260413 --mode max --epochs 200 --device cpu
+```
+
+Evaluate the trained checkpoint:
+
+```bash
+python -m src.cli eval --run bench_nonconvex_t10_a7_r4_20260413 --mode max --device cpu --deterministic
+```
+
+Replay planner and policy trajectories together:
+
+```bash
+python -m src.cli replay --run bench_nonconvex_t10_a7_r4_20260413 --mode max --task task_0003 --alpha 0.5
+```
+
+Replay only a legacy rollout file:
+
+```bash
+python -m src.cli replay --task task_0003 --evaluation-rollouts data/morl/some_legacy_run/max/checkpoints/max_iql/evaluation/rollouts.pkl
+```
+
+Generate a Pareto plot:
+
+```bash
+python -m src.cli pareto --run bench_nonconvex_t10_a7_r4_20260413 --group-by-family
+```
+
+## Notes
+
+- Commands above assume the current working directory is the repo root.
+- Paths are resolved with `pathlib` in the CLI and run-layout helpers, so Mac/Linux users do not need any Windows-specific wrappers.
+- `python -m src.cli train` and `eval` require PyTorch in the active environment.
+- Existing artifact semantics checks still apply. Legacy pre-fix datasets and checkpoints must be rebuilt before reuse in MORL training or evaluation.
+- The unified CLI no longer launches archived demo scripts from `check`; use `python -m src.cli check` only for environment/model validation.

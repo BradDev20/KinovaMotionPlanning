@@ -1,6 +1,8 @@
-import numpy as np
+from contextlib import contextmanager
+from typing import List, Tuple, Optional, Sequence
+
 import mujoco
-from typing import List, Tuple, Callable, Optional, Dict, Any, Sequence
+import numpy as np
 from .kinematics import KinematicsSolver
 from .utils import Obstacle, PerformanceTimer
 
@@ -161,16 +163,15 @@ class TrajectoryLengthCostFunction(CostFunction):
             for q in trajectory:
                 ee_pos, _ = self.kinematics_solver.forward_kinematics(q)
                 ee_positions.append(ee_pos)
-            
+
             ee_positions = np.array(ee_positions)
-            
+
             # Compute distances between consecutive end-effector positions
             distances = np.linalg.norm(np.diff(ee_positions, axis=0), axis=1)
             total_length = np.sum(distances)
 
             # Calculate the distance between the first and last waypoints
             first_last_distance = np.linalg.norm(ee_positions[0] - ee_positions[-1])
-            
         finally:
             self.kinematics_solver._restore_state()
 
@@ -187,14 +188,14 @@ class TrajectoryLengthCostFunction(CostFunction):
         """Compute trajectory length cost with pre-computed FK results (faster)"""
         if trajectory.shape[0] < 2 or len(fk_results) < 2:
             return 0.0
-        
+
         # Extract end-effector positions from pre-computed FK results
         ee_positions = np.array([fk[0] for fk in fk_results])
-        
+
         # Compute distances between consecutive end-effector positions
         distances = np.linalg.norm(np.diff(ee_positions, axis=0), axis=1)
         total_length = np.sum(distances)
-        
+
         # Calculate the distance between the first and last waypoints
         first_last_distance = np.linalg.norm(ee_positions[0] - ee_positions[-1])
         
@@ -210,17 +211,17 @@ class TrajectoryLengthCostFunction(CostFunction):
         """Compute end-effector position Jacobian using finite differences"""
         n_joints = len(joint_positions)
         jacobian = np.zeros((3, n_joints))  # 3D position Jacobian
-        
+
         # Get base end-effector position
         ee_pos_base, _ = self.kinematics_solver.forward_kinematics(joint_positions)
-        
+
         # Compute partial derivatives for each joint
         for j in range(n_joints):
             q_eps = joint_positions.copy()
             q_eps[j] += eps
             ee_pos_eps, _ = self.kinematics_solver.forward_kinematics(q_eps)
             jacobian[:, j] = (ee_pos_eps - ee_pos_base) / eps
-            
+
         return jacobian
 
     def compute_gradient(self, trajectory: np.ndarray, dt: float = 0.1) -> np.ndarray:
@@ -229,39 +230,38 @@ class TrajectoryLengthCostFunction(CostFunction):
             return np.zeros_like(trajectory)
 
         gradient = np.zeros_like(trajectory)
-        
+
         self.kinematics_solver._backup_state()
         try:
             # Convert joint trajectory to end-effector positions and compute Jacobians
             ee_positions = []
             jacobians = []
-            
+
             for q in trajectory:
                 ee_pos, _ = self.kinematics_solver.forward_kinematics(q)
                 ee_positions.append(ee_pos)
                 jacobians.append(self._compute_jacobian(q))
-            
+
             ee_positions = np.array(ee_positions)
-            
+
             # Compute gradient using chain rule: dL/dq = dL/dx * dx/dq
             for i in range(trajectory.shape[0] - 1):
                 # Vector from current to next end-effector position
                 diff = ee_positions[i + 1] - ee_positions[i]
                 distance = np.linalg.norm(diff)
-                
+
                 if distance > 1e-8:  # Avoid division by zero
                     # Unit vector in direction of motion
                     unit_vector = diff / distance
-                    
+
                     # Gradient w.r.t. end-effector positions
                     # dL/dx_i = -unit_vector, dL/dx_{i+1} = +unit_vector
-                    
+
                     # Chain rule: dL/dq_i = dL/dx_i * dx_i/dq_i
                     gradient[i] += -unit_vector @ jacobians[i]
                     gradient[i + 1] += unit_vector @ jacobians[i + 1]
 
             first_last_distance = np.linalg.norm(ee_positions[0] - ee_positions[-1])
-                    
         finally:
             self.kinematics_solver._restore_state()
 
@@ -578,7 +578,7 @@ class CompositeCostFunction(CostFunction):
         self.rho = rho
         self.epsilon_tie = epsilon_tie
         
-        print(f"Composite cost function initialized:")
+        print("Composite cost function initialized:")
         print(f"     Mode: {mode.upper()}")
         print(f"     Functions: {len(cost_functions)}")
         print(f"     Original weights: {[f'{w:.1f}' for w in self.original_weights]}")
@@ -586,7 +586,7 @@ class CompositeCostFunction(CostFunction):
         if mode in ['max', 'max_constrained']:
             print(f"     Tie-breaking parameter ρ: {rho}")
         if mode == 'max_constrained':
-            print(f"     Using epigraph reformulation: max moved to constraints")
+            print("     Using epigraph reformulation: max moved to constraints")
     
     def compute_cost(self, trajectory: np.ndarray, dt: float = 0.1) -> float:
         """Compute composite cost using specified mode."""
@@ -1092,6 +1092,203 @@ class ShelfSideWallRiskCost(CostFunction):
         For now, reuse the standard gradient. This matches the pattern in other cost functions,
         where Jacobians are still recomputed even if FK positions are cached.
         """
+        return self.compute_gradient(trajectory, dt)
+
+
+class MuJoCoRobotObstacleCost(CostFunction):
+    """
+    Full-body obstacle proximity cost using MuJoCo contacts.
+
+    Contacts are generated by obstacle geom margins, so positive distances inside the margin
+    provide a smooth proximity band while non-positive distances represent hard collisions.
+    """
+
+    def __init__(
+        self,
+        model,
+        data,
+        *,
+        weight: float = 1.0,
+        aggregate: str = "max",
+        collision_penalty: float = 1.0,
+        qpos_arm_idx: Optional[Sequence[int]] = None,
+        rest_qpos: Optional[np.ndarray] = None,
+        collision_policy=None,
+    ):
+        super().__init__(weight)
+        assert aggregate in ("max", "sum", "avg")
+        self.model = model
+        self.data = data
+        self.aggregate = aggregate
+        self.collision_penalty = float(max(collision_penalty, 1.0))
+
+        from .planners import MotionPlannerFactory, default_collision_policy
+
+        self.collision_policy = collision_policy or default_collision_policy()
+        self.contact_checker = MotionPlannerFactory.create_collision_checker(model, data, policy=self.collision_policy)
+
+        self.nq = int(model.nq)
+        if qpos_arm_idx is not None:
+            self.arm_idx = np.asarray(qpos_arm_idx, dtype=int)
+            self.n_arm = int(self.arm_idx.size)
+        else:
+            self.n_arm = 7
+            self.arm_idx = np.arange(self.n_arm, dtype=int)
+
+        if rest_qpos is None:
+            self.rest_qpos = data.qpos.copy()
+        else:
+            self.rest_qpos = np.array(rest_qpos, dtype=float).copy()
+            assert self.rest_qpos.shape[0] == self.nq, "rest_qpos must have length model.nq"
+        self._waypoint_cost_cache: dict[tuple[float, ...], float] = {}
+        self._waypoint_cost_cache_decimals = 5
+        self._waypoint_cost_cache_size = 20000
+
+    def _apply_q(self, q: np.ndarray):
+        if q.shape[0] == self.nq:
+            self.data.qpos[:] = q
+        elif q.shape[0] == self.n_arm:
+            qp = self.rest_qpos.copy()
+            qp[self.arm_idx] = q
+            self.data.qpos[:] = qp
+        else:
+            raise ValueError(
+                f"MuJoCoRobotObstacleCost: got DOF={q.shape[0]} but expected n_arm={self.n_arm} or nq={self.nq}"
+            )
+        self.data.qvel[:] = 0
+        mujoco.mj_forward(self.model, self.data)
+
+    def _contact_margin(self, contact) -> float:
+        if contact.geom1_id < 0 or contact.geom2_id < 0:
+            return 0.0
+        return float(self.model.geom_margin[contact.geom1_id] + self.model.geom_margin[contact.geom2_id])
+
+    def _contact_penalty(self, contact) -> float:
+        if contact.classification != "disallowed_obstacle":
+            return 0.0
+
+        margin = max(self._contact_margin(contact), 1e-6)
+        clearance_gap = max(margin - float(contact.distance), 0.0)
+        if clearance_gap <= 0.0:
+            return 0.0
+
+        normalized_penalty = (clearance_gap / margin) ** 2
+        if float(contact.distance) <= 0.0:
+            normalized_penalty *= self.collision_penalty
+        return float(normalized_penalty)
+
+    def _waypoint_cost_from_contacts(self) -> float:
+        contacts = self.contact_checker.classify_current_contacts()
+        return float(sum(self._contact_penalty(contact) for contact in contacts))
+
+    def _cache_key_for_configuration(self, q: np.ndarray) -> tuple[float, ...]:
+        return tuple(np.round(np.asarray(q, dtype=float), decimals=self._waypoint_cost_cache_decimals))
+
+    def _store_cached_waypoint_cost(self, key: tuple[float, ...], value: float) -> float:
+        if len(self._waypoint_cost_cache) >= self._waypoint_cost_cache_size:
+            remove_count = max(1, self._waypoint_cost_cache_size // 5)
+            for stale_key in list(self._waypoint_cost_cache.keys())[:remove_count]:
+                del self._waypoint_cost_cache[stale_key]
+        self._waypoint_cost_cache[key] = float(value)
+        return float(value)
+
+    @contextmanager
+    def _configuration_evaluation_scope(self):
+        if not hasattr(self, "data") or not hasattr(self, "model"):
+            yield
+            return
+
+        q_backup = self.data.qpos.copy()
+        qvel_backup = self.data.qvel.copy()
+        try:
+            yield
+        finally:
+            self.data.qpos[:] = q_backup
+            self.data.qvel[:] = qvel_backup
+            mujoco.mj_forward(self.model, self.data)
+
+    def _compute_configuration_cost_in_scope(self, q: np.ndarray) -> float:
+        if not hasattr(self, "data") or not hasattr(self, "model"):
+            return self._compute_configuration_cost_uncached(q)
+        self._apply_q(np.asarray(q, dtype=float))
+        return self._waypoint_cost_from_contacts()
+
+    def _compute_configuration_cost_uncached(self, q: np.ndarray) -> float:
+        with self._configuration_evaluation_scope():
+            return self._compute_configuration_cost_in_scope(q)
+
+    def compute_configuration_cost(self, q: np.ndarray, *, in_evaluation_scope: bool = False) -> float:
+        key = self._cache_key_for_configuration(q)
+        cached = self._waypoint_cost_cache.get(key)
+        if cached is not None:
+            return float(cached)
+        if in_evaluation_scope:
+            value = self._compute_configuration_cost_in_scope(q)
+        else:
+            value = self._compute_configuration_cost_uncached(q)
+        return self._store_cached_waypoint_cost(key, value)
+
+    def _aggregate_waypoint_costs(self, vals: np.ndarray, dt: float) -> float:
+        if vals.size == 0:
+            return 0.0
+        if self.aggregate == "max":
+            return float(np.max(vals))
+        if self.aggregate == "sum":
+            return float(np.sum(vals) * dt)
+        return float(np.mean(vals))
+
+    def compute_cost(self, trajectory: np.ndarray, dt: float = 0.1) -> float:
+        if trajectory.size == 0:
+            return 0.0
+
+        with self._configuration_evaluation_scope():
+            vals = np.asarray(
+                [self.compute_configuration_cost(q, in_evaluation_scope=True) for q in trajectory],
+                dtype=float,
+            )
+        return self.weight * self._aggregate_waypoint_costs(vals, dt)
+
+    def compute_cost_with_fk(self, trajectory: np.ndarray, dt: float, fk_results: List) -> float:
+        return self.compute_cost(trajectory, dt)
+
+    def compute_gradient(self, trajectory: np.ndarray, dt: float = 0.1) -> np.ndarray:
+        if trajectory.size == 0:
+            return np.zeros_like(trajectory)
+
+        eps = 1e-5
+        grad = np.zeros_like(trajectory)
+        with self._configuration_evaluation_scope():
+            base_vals = np.asarray(
+                [self.compute_configuration_cost(q, in_evaluation_scope=True) for q in trajectory],
+                dtype=float,
+            )
+            base_agg = self._aggregate_waypoint_costs(base_vals, dt)
+            base_max = float(np.max(base_vals)) if base_vals.size else 0.0
+            max_count = int(np.sum(base_vals == base_max)) if base_vals.size else 0
+            second_max = float(np.partition(base_vals, -2)[-2]) if base_vals.size > 1 else float("-inf")
+
+            for i in range(trajectory.shape[0]):
+                base_wp = float(base_vals[i])
+                if self.aggregate == "max":
+                    if base_wp < base_max or (base_wp == base_max and max_count > 1):
+                        other_max = base_max
+                    else:
+                        other_max = second_max
+                for j in range(trajectory.shape[1]):
+                    trajectory[i, j] += eps
+                    perturbed_wp = self.compute_configuration_cost(trajectory[i], in_evaluation_scope=True)
+                    trajectory[i, j] -= eps
+                    if self.aggregate == "sum":
+                        perturbed_agg = base_agg + ((perturbed_wp - base_wp) * dt)
+                    elif self.aggregate == "avg":
+                        perturbed_agg = base_agg + ((perturbed_wp - base_wp) / float(len(base_vals)))
+                    else:
+                        perturbed_agg = max(other_max, perturbed_wp)
+                    grad[i, j] = (self.weight * (perturbed_agg - base_agg)) / eps
+
+        return grad * self.weight
+
+    def compute_gradient_with_fk(self, trajectory: np.ndarray, dt: float, fk_results: List) -> np.ndarray:
         return self.compute_gradient(trajectory, dt)
 
 

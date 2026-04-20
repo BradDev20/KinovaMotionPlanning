@@ -1,27 +1,33 @@
 """
-Motion Planning Package for Kinova Gen3
+Motion planning package exports.
 
-This package provides:
-- Inverse kinematics using MuJoCo
-- Path planning with RRT (can be replaced with OMPL)
-- Integration with MuJoCo simulation
+Keep package imports lightweight so torch-only utilities can be used in
+environments that do not have MuJoCo installed.
 """
 
-from .kinematics import KinematicsSolver
-from .planners import MotionPlannerFactory
-from .utils import Obstacle, PillarObstacle
-from .unconstrained_trajopt import UnconstrainedTrajOptPlanner
-from .RRTPlanner import RRTPlanner
-from .integration import MotionPlanningInterface, TrajectoryVisualizer
-import mujoco.viewer
+from __future__ import annotations
 
-# Import the new abstraction modules
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from importlib import import_module
 
-from scene_builder import MujocoSceneBuilder, create_standard_scene, create_pareto_scene
-from trajectory_visualizer import TrajectoryVisualizationManager, MultiTrajectoryVisualizer, create_trajectory_visualizer
-from trajectory_optimization_demo import TrajectoryOptimizationDemo, MultiTrajectoryDemo
+_LAZY_EXPORTS = {
+    "KinematicsSolver": ("src.motion_planning.kinematics", "KinematicsSolver"),
+    "MotionPlannerFactory": ("src.motion_planning.planners", "MotionPlannerFactory"),
+    "Obstacle": ("src.motion_planning.utils", "Obstacle"),
+    "PillarObstacle": ("src.motion_planning.utils", "PillarObstacle"),
+    "UnconstrainedTrajOptPlanner": ("src.motion_planning.unconstrained_trajopt", "UnconstrainedTrajOptPlanner"),
+    "RRTPlanner": ("src.motion_planning.RRTPlanner", "RRTPlanner"),
+    "MotionPlanningInterface": ("src.motion_planning.integration", "MotionPlanningInterface"),
+    "TrajectoryVisualizer": ("src.motion_planning.integration", "TrajectoryVisualizer"),
+}
 
-__all__ = ['KinematicsSolver', 'RRTPlanner', 'UnconstrainedTrajOptPlanner', 'MotionPlannerFactory', 'Obstacle', 'PillarObstacle' ,'MotionPlanningInterface', 'TrajectoryVisualizer', 'MujocoSceneBuilder', 'create_standard_scene', 'create_pareto_scene', 'TrajectoryVisualizationManager', 'MultiTrajectoryVisualizer', 'create_trajectory_visualizer', 'TrajectoryOptimizationDemo', 'MultiTrajectoryDemo']
+__all__ = list(_LAZY_EXPORTS)
+
+
+def __getattr__(name):
+    if name in _LAZY_EXPORTS:
+        module_name, attribute_name = _LAZY_EXPORTS[name]
+        module = import_module(module_name)
+        value = getattr(module, attribute_name)
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

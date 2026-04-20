@@ -2,6 +2,11 @@
 __pycache__/
 *.py[codz]
 *$py.class
+.DS_Store
+.AppleDouble
+Thumbs.db
+Desktop.ini
+*.prof
 
 src/pareto_data_and_results/
 
@@ -175,7 +180,7 @@ cython_debug/
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
-#.idea/
+.idea/
 
 # Abstra
 # Abstra is an AI-powered process automation framework.
@@ -188,7 +193,7 @@ cython_debug/
 #  that can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
 #  and can be added to the global gitignore or merged into this file. However, if you prefer, 
 #  you could uncomment the following to ignore the entire vscode folder
-# .vscode/
+.vscode/
 
 # Ruff stuff:
 .ruff_cache/
@@ -211,3 +216,11 @@ __marimo__/
 *.gif
 
 src/viz/motion_plans
+test_artifacts/
+tests/tmp*/
+data/runs/
+data/morl/_visualization/
+robot_models/kinova_gen3/morl_task_*.xml
+robot_models/kinova_gen3/_morl_generated/
+/data/*
+src/pareto_data_and_results/
