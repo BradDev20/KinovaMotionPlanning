@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import time
 from typing import Sequence
 
@@ -116,12 +117,20 @@ class TorchTrajectoryBatchPlanner:
             for offset, _ in _GRIPPER_STATIC_TRANSFORMS
         )
         self._gripper_pinch_offset = torch.as_tensor(_GRIPPER_PINCH_OFFSET, dtype=self.dtype, device=self.device)
+        self._latest_warm_start_metadata: list[dict[str, object]] = []
 
     def _linear_trajectory(self, start_config, goal_config):
         fractions = torch.linspace(0.0, 1.0, self.n_waypoints, device=self.device, dtype=self.dtype).view(1, self.n_waypoints, 1)
         return (1.0 - fractions) * start_config[:, None, :] + fractions * goal_config[:, None, :]
 
-    def _smooth_warm_start_perturbation(self, waypoint_count: int, joint_count: int, rng: np.random.Generator) -> np.ndarray:
+    def _smooth_warm_start_perturbation(
+        self,
+        waypoint_count: int,
+        joint_count: int,
+        rng: np.random.Generator,
+        *,
+        noise_scale: float,
+    ) -> np.ndarray:
         interior_waypoints = max(int(waypoint_count) - 2, 0)
         if interior_waypoints <= 0:
             return np.zeros((0, joint_count), dtype=np.float32)
@@ -139,7 +148,7 @@ class TorchTrajectoryBatchPlanner:
         stacked_basis = np.stack(basis_vectors, axis=0)
         coefficients = rng.normal(
             loc=0.0,
-            scale=self.warm_start_noise,
+            scale=float(max(noise_scale, 0.0)),
             size=(stacked_basis.shape[0], joint_count),
         ).astype(np.float32)
         return np.tensordot(stacked_basis, coefficients, axes=(0, 0)).astype(np.float32, copy=False)
@@ -179,30 +188,366 @@ class TorchTrajectoryBatchPlanner:
                 break
         return clipped
 
-    def _initialize_latent(self, start_config, goal_config, seeds: Sequence[int], dts: Sequence[float] | None = None):
+    def _resample_joint_path(self, path: np.ndarray, waypoint_count: int) -> np.ndarray:
+        if path.shape[0] == 0:
+            raise ValueError("Cannot resample an empty path.")
+        if path.shape[0] == 1:
+            return np.repeat(path.astype(np.float32, copy=False), waypoint_count, axis=0)
+
+        segment_lengths = np.linalg.norm(np.diff(path, axis=0), axis=1)
+        cumulative_lengths = np.concatenate((np.asarray([0.0], dtype=np.float32), np.cumsum(segment_lengths, dtype=np.float32)))
+        total_length = float(cumulative_lengths[-1])
+        if total_length <= 1e-8:
+            return np.linspace(path[0], path[-1], waypoint_count, dtype=np.float32)
+
+        targets = np.linspace(0.0, total_length, waypoint_count, dtype=np.float32)
+        resampled = np.empty((waypoint_count, path.shape[1]), dtype=np.float32)
+        segment_index = 0
+        for target_index, target in enumerate(targets):
+            while (
+                segment_index < segment_lengths.shape[0] - 1
+                and float(cumulative_lengths[segment_index + 1]) < float(target)
+            ):
+                segment_index += 1
+            start_length = float(cumulative_lengths[segment_index])
+            end_length = float(cumulative_lengths[segment_index + 1])
+            if end_length <= start_length + 1e-8:
+                interpolation = 0.0
+            else:
+                interpolation = (float(target) - start_length) / (end_length - start_length)
+            resampled[target_index] = (
+                (1.0 - interpolation) * path[segment_index]
+                + interpolation * path[segment_index + 1]
+            )
+
+        resampled[0] = path[0]
+        resampled[-1] = path[-1]
+        return resampled
+
+    @staticmethod
+    def _rrt_candidate_is_better(
+        *,
+        baseline_collision_waypoint_count: int,
+        baseline_min_signed_distance: float,
+        candidate_collision_waypoint_count: int,
+        candidate_min_signed_distance: float,
+    ) -> bool:
+        if candidate_collision_waypoint_count == 0 and baseline_collision_waypoint_count > 0:
+            return True
+        return (
+            candidate_collision_waypoint_count < baseline_collision_waypoint_count
+            and candidate_min_signed_distance > baseline_min_signed_distance
+        )
+
+    def _surrogate_collision_checker_for_job(self, job: TorchPlannerJob):
+        obstacle_centers = np.asarray(job.obstacle_centers, dtype=np.float32)
+        if obstacle_centers.shape[0] == 0:
+            return lambda _config: False
+        inflated_radii = (
+            np.asarray(job.obstacle_radii, dtype=np.float32)
+            + np.asarray(job.obstacle_safe_distances, dtype=np.float32)
+        )
+
+        def _checker(config: np.ndarray) -> bool:
+            config_tensor = torch.as_tensor(config, dtype=self.dtype, device=self.device).view(1, 1, -1)
+            with torch.no_grad():
+                ee_position = self.forward_kinematics(config_tensor)[0, 0, :].detach().cpu().numpy().astype(np.float32, copy=False)
+            distances = np.linalg.norm(obstacle_centers - ee_position[None, :], axis=1) - inflated_radii
+            return bool(np.any(distances < 0.0))
+
+        return _checker
+
+    @staticmethod
+    def _should_attempt_rrt_warm_start(
+        job: TorchPlannerJob,
+        *,
+        baseline_collision_waypoint_count: int,
+        baseline_min_signed_distance: float,
+    ) -> bool:
+        if str(getattr(job, "task_family", "base")) != "double_corridor":
+            return False
+        if baseline_collision_waypoint_count >= 10:
+            return True
+        if baseline_collision_waypoint_count >= 6 and baseline_min_signed_distance <= -0.04:
+            return True
+        return baseline_collision_waypoint_count >= 3 and baseline_min_signed_distance <= -0.07
+
+    @staticmethod
+    def _restart_index_from_request_id(request_id: str) -> int | None:
+        match = re.search(r"_r(\d+)$", str(request_id))
+        if match is None:
+            return None
+        try:
+            return int(match.group(1))
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _rrt_warm_start_key(job: TorchPlannerJob) -> tuple[object, ...]:
+        return (
+            tuple(float(value) for value in job.start_config),
+            tuple(float(value) for value in job.goal_config),
+            tuple(tuple(float(axis) for axis in center) for center in job.obstacle_centers),
+            tuple(float(value) for value in job.obstacle_radii),
+            tuple(float(value) for value in job.obstacle_safe_distances),
+            int(job.seed),
+            str(getattr(job, "task_family", "base")),
+            float(job.dt),
+        )
+
+    def _apply_rrt_warm_starts(
+        self,
+        trajectory,
+        jobs: Sequence[TorchPlannerJob],
+        *,
+        existing_metadata: list[dict[str, object]] | None = None,
+    ):
+        batch_size = trajectory.shape[0]
+        if batch_size == 0:
+            self._latest_warm_start_metadata = []
+            return trajectory
+
+        baseline_summary = self._trajectory_collision_summary(trajectory, jobs)
+        trajectory_np = trajectory.detach().cpu().numpy().astype(np.float32, copy=True)
+        baseline_collision_waypoint_counts = [
+            int(baseline_summary["collision_waypoint_count"][index].detach().cpu().item())
+            for index in range(batch_size)
+        ]
+        baseline_min_signed_distances = [
+            float(baseline_summary["min_signed_distance"][index].detach().cpu().item())
+            for index in range(batch_size)
+        ]
+        if existing_metadata is not None and len(existing_metadata) == batch_size:
+            metadata = [dict(item) for item in existing_metadata]
+        else:
+            metadata = [{} for _ in range(batch_size)]
+
+        for index in range(batch_size):
+            entry = metadata[index]
+            entry.setdefault("warm_start_strategy", "linear")
+            entry.setdefault("warm_start_seed_used", False)
+            entry.setdefault("warm_start_tag", "")
+            entry.setdefault("warm_start_noise_scale", None)
+            entry.update(
+                {
+                    "warm_start_rrt_attempted": False,
+                    "warm_start_rrt_success": False,
+                    "warm_start_rrt_cache_hit": False,
+                    "warm_start_baseline_collision_waypoint_count": baseline_collision_waypoint_counts[index],
+                    "warm_start_baseline_min_signed_distance": baseline_min_signed_distances[index],
+                    "warm_start_rrt_collision_waypoint_count": None,
+                    "warm_start_rrt_min_signed_distance": None,
+                }
+            )
+
+        eligible_indices: list[int] = []
+        grouped_indices: dict[tuple[object, ...], list[int]] = {}
+        for index, job in enumerate(jobs):
+            baseline_collision_waypoint_count = baseline_collision_waypoint_counts[index]
+            baseline_min_signed_distance = baseline_min_signed_distances[index]
+            if not self._should_attempt_rrt_warm_start(
+                job,
+                baseline_collision_waypoint_count=baseline_collision_waypoint_count,
+                baseline_min_signed_distance=baseline_min_signed_distance,
+            ):
+                continue
+            restart_index = self._restart_index_from_request_id(job.request_id)
+            if restart_index is not None and restart_index != 0:
+                continue
+            eligible_indices.append(index)
+            rrt_key = self._rrt_warm_start_key(job)
+            grouped_indices.setdefault(rrt_key, []).append(index)
+
+        representative_by_key: dict[tuple[object, ...], int] = {}
+        for rrt_key, indices in grouped_indices.items():
+            representative_by_key[rrt_key] = max(
+                indices,
+                key=lambda candidate_index: (
+                    baseline_collision_waypoint_counts[candidate_index],
+                    -baseline_min_signed_distances[candidate_index],
+                    -candidate_index,
+                ),
+            )
+        if not representative_by_key:
+            self._latest_warm_start_metadata = metadata
+            return torch.as_tensor(trajectory_np, dtype=self.dtype, device=self.device)
+        try:
+            from .RRTPlanner import RRTPlanner
+        except Exception:
+            self._latest_warm_start_metadata = metadata
+            return torch.as_tensor(trajectory_np, dtype=self.dtype, device=self.device)
+
+        rrt_cache: dict[tuple[object, ...], dict[str, object]] = {}
+        for rrt_key, representative_index in sorted(
+            representative_by_key.items(),
+            key=lambda item: item[1],
+        ):
+            job = jobs[representative_index]
+            item_metadata = metadata[representative_index]
+            item_metadata["warm_start_rrt_attempted"] = True
+            rrt_seed = np.random.default_rng(int(job.seed))
+            planner = RRTPlanner(
+                model=None,
+                data=None,
+                step_size=0.40,
+                max_iterations=120,
+                goal_threshold=0.20,
+            )
+            planner.set_collision_checker(self._surrogate_collision_checker_for_job(job))
+            planned_path, planning_success = planner.plan(
+                np.asarray(job.start_config, dtype=np.float32),
+                np.asarray(job.goal_config, dtype=np.float32),
+                rng=rrt_seed,
+            )
+            cache_entry: dict[str, object] = {
+                "success": bool(planning_success),
+                "candidate_path": None,
+                "candidate_collision_waypoint_count": None,
+                "candidate_min_signed_distance": None,
+            }
+            item_metadata["warm_start_rrt_success"] = bool(planning_success)
+            if not planning_success or len(planned_path) < 2:
+                cache_entry["success"] = False
+                item_metadata["warm_start_rrt_success"] = False
+                rrt_cache[rrt_key] = cache_entry
+                continue
+
+            smoothed_path = planner.smooth_path(planned_path, max_iterations=16, rng=rrt_seed)
+            candidate_path = self._resample_joint_path(np.asarray(smoothed_path, dtype=np.float32), self.n_waypoints)
+            candidate_path[0] = trajectory_np[representative_index, 0]
+            candidate_path[-1] = trajectory_np[representative_index, -1]
+            candidate_path = self._clip_warm_start_second_differences(
+                candidate_path,
+                dt=float(job.dt),
+                acceleration_cap=0.5 * self.max_acceleration,
+            )
+            candidate_trajectory = torch.as_tensor(candidate_path[None, ...], dtype=self.dtype, device=self.device)
+            candidate_summary = self._trajectory_collision_summary(candidate_trajectory, [job])
+            candidate_collision_waypoint_count = int(candidate_summary["collision_waypoint_count"][0].detach().cpu().item())
+            candidate_min_signed_distance = float(candidate_summary["min_signed_distance"][0].detach().cpu().item())
+            cache_entry["candidate_path"] = candidate_path
+            cache_entry["candidate_collision_waypoint_count"] = candidate_collision_waypoint_count
+            cache_entry["candidate_min_signed_distance"] = candidate_min_signed_distance
+            rrt_cache[rrt_key] = cache_entry
+
+        for index in eligible_indices:
+            job = jobs[index]
+            rrt_key = self._rrt_warm_start_key(job)
+            cache_entry = rrt_cache.get(rrt_key)
+            if cache_entry is None:
+                continue
+            representative_index = representative_by_key.get(rrt_key)
+            item_metadata = metadata[index]
+            if representative_index is not None and representative_index != index:
+                item_metadata["warm_start_rrt_cache_hit"] = True
+                item_metadata["warm_start_rrt_success"] = bool(cache_entry.get("success", False))
+            candidate_path_cached = cache_entry.get("candidate_path")
+            if candidate_path_cached is None:
+                continue
+            candidate_collision_waypoint_count = int(cache_entry.get("candidate_collision_waypoint_count", 0) or 0)
+            candidate_min_signed_distance = float(cache_entry.get("candidate_min_signed_distance", 0.0) or 0.0)
+            item_metadata["warm_start_rrt_collision_waypoint_count"] = candidate_collision_waypoint_count
+            item_metadata["warm_start_rrt_min_signed_distance"] = candidate_min_signed_distance
+            if self._rrt_candidate_is_better(
+                baseline_collision_waypoint_count=baseline_collision_waypoint_counts[index],
+                baseline_min_signed_distance=baseline_min_signed_distances[index],
+                candidate_collision_waypoint_count=candidate_collision_waypoint_count,
+                candidate_min_signed_distance=candidate_min_signed_distance,
+            ):
+                trajectory_np[index] = np.asarray(candidate_path_cached, dtype=np.float32)
+                item_metadata["warm_start_strategy"] = "rrt"
+
+        self._latest_warm_start_metadata = metadata
+        return torch.as_tensor(trajectory_np, dtype=self.dtype, device=self.device)
+
+    def _initialize_latent(
+        self,
+        start_config,
+        goal_config,
+        seeds: Sequence[int],
+        dts: Sequence[float] | None = None,
+        jobs: Sequence[TorchPlannerJob] | None = None,
+    ):
         trajectory = self._linear_trajectory(start_config, goal_config)
-        if self.n_waypoints > 2 and self.warm_start_noise > 0.0:
-            noisy = trajectory[:, 1:-1, :].detach().cpu().numpy()
-            resolved_dts = [float(dt) for dt in dts] if dts is not None else [1.0 / max(self.n_waypoints - 1, 1)] * len(seeds)
+        batch_size = int(trajectory.shape[0])
+        resolved_dts = (
+            [float(dt) for dt in dts]
+            if dts is not None
+            else [1.0 / max(self.n_waypoints - 1, 1)] * len(seeds)
+        )
+
+        joint_lower = self._joint_lower.detach().cpu().numpy().astype(np.float32, copy=False)
+        joint_upper = self._joint_upper.detach().cpu().numpy().astype(np.float32, copy=False)
+        base_np = trajectory.detach().cpu().numpy().astype(np.float32, copy=True)
+
+        metadata: list[dict[str, object]] = [{} for _ in range(batch_size)]
+        if jobs is not None and len(jobs) == batch_size:
+            for index, job in enumerate(jobs):
+                requested_seed = getattr(job, "warm_start_trajectory", None) is not None
+                used_seed = False
+                tag = str(getattr(job, "warm_start_tag", "") or "")
+                if requested_seed:
+                    try:
+                        warm = np.asarray(job.warm_start_trajectory, dtype=np.float32)
+                        if warm.ndim == 2 and warm.shape[0] >= 2 and warm.shape[1] == base_np.shape[2]:
+                            candidate = self._resample_joint_path(warm, self.n_waypoints)
+                            candidate[0] = base_np[index, 0]
+                            candidate[-1] = base_np[index, -1]
+                            candidate = np.clip(candidate, joint_lower, joint_upper)
+                            candidate = self._clip_warm_start_second_differences(
+                                candidate,
+                                dt=float(resolved_dts[index]),
+                                acceleration_cap=0.5 * self.max_acceleration,
+                            )
+                            base_np[index] = candidate
+                            used_seed = True
+                    except Exception as exc:
+                        metadata[index]["warm_start_seed_error"] = str(exc)
+
+                # Store seed/noise metadata up-front; RRT stage will extend it.
+                metadata[index] = {
+                    "warm_start_strategy": "seed" if used_seed else "linear",
+                    "warm_start_seed_used": bool(used_seed),
+                    "warm_start_seed_requested": bool(requested_seed),
+                    "warm_start_tag": tag,
+                    "warm_start_noise_scale": None,
+                }
+
+        # Apply smooth noise after seed insertion so we generate local variants around the base route.
+        if self.n_waypoints > 2:
+            interior = base_np[:, 1:-1, :]
             for index, seed in enumerate(seeds):
+                noise_scale = self.warm_start_noise
+                if jobs is not None and len(jobs) == batch_size:
+                    per_job_scale = getattr(jobs[index], "warm_start_noise_scale", None)
+                    if per_job_scale is not None:
+                        noise_scale = float(per_job_scale)
+                if jobs is not None and len(jobs) == batch_size:
+                    metadata[index]["warm_start_noise_scale"] = float(noise_scale)
+                if noise_scale <= 0.0:
+                    continue
                 rng = np.random.default_rng(int(seed))
-                noisy[index] += self._smooth_warm_start_perturbation(self.n_waypoints, noisy[index].shape[1], rng)
-                full_trajectory = np.concatenate(
-                    (
-                        trajectory[index : index + 1, :1, :].detach().cpu().numpy()[0],
-                        noisy[index],
-                        trajectory[index : index + 1, -1:, :].detach().cpu().numpy()[0],
-                    ),
-                    axis=0,
+                interior[index] += self._smooth_warm_start_perturbation(
+                    self.n_waypoints,
+                    interior[index].shape[1],
+                    rng,
+                    noise_scale=float(noise_scale),
                 )
+                full_trajectory = np.concatenate((base_np[index, :1, :], interior[index], base_np[index, -1:, :]), axis=0)
                 full_trajectory = self._clip_warm_start_second_differences(
                     full_trajectory,
-                    dt=resolved_dts[index],
+                    dt=float(resolved_dts[index]),
                     acceleration_cap=0.5 * self.max_acceleration,
                 )
-                noisy[index] = full_trajectory[1:-1]
-            noisy_tensor = torch.as_tensor(noisy, dtype=self.dtype, device=self.device)
-            trajectory = torch.cat((trajectory[:, :1, :], noisy_tensor, trajectory[:, -1:, :]), dim=1)
+                interior[index] = full_trajectory[1:-1]
+
+            base_np[:, 1:-1, :] = interior
+
+        trajectory = torch.as_tensor(base_np, dtype=self.dtype, device=self.device)
+        if jobs is not None and len(jobs) == trajectory.shape[0]:
+            trajectory = self._apply_rrt_warm_starts(trajectory, jobs, existing_metadata=metadata)
+        else:
+            self._latest_warm_start_metadata = metadata if metadata else []
         normalized = ((trajectory[:, 1:-1, :] - self._joint_center.view(1, 1, -1)) / self._joint_half_range.view(1, 1, -1)).clamp(-0.999, 0.999)
         return torch.atanh(normalized)
 
@@ -296,7 +641,7 @@ class TorchTrajectoryBatchPlanner:
             safety_decay = torch.as_tensor([job.safety_decay_rate for job in jobs], dtype=self.dtype, device=self.device)
             safety_bias = torch.as_tensor([job.safety_bias for job in jobs], dtype=self.dtype, device=self.device)
             collision_penalty = torch.as_tensor([job.safety_collision_penalty for job in jobs], dtype=self.dtype, device=self.device)
-            scaled = (0.02 - nearest_distance) * safety_decay[:, None] + safety_bias[:, None]
+            scaled = (0.05 - nearest_distance) * safety_decay[:, None] + safety_bias[:, None]
             waypoint_penalty = F.softplus(scaled).square()
             waypoint_penalty = torch.where(
                 nearest_distance < 0.0,
@@ -693,11 +1038,29 @@ class TorchTrajectoryBatchPlanner:
         if not jobs:
             return []
 
+        import dataclasses
+
         start_time = time.perf_counter()
         start_config = torch.as_tensor([job.start_config for job in jobs], dtype=self.dtype, device=self.device)
         goal_config = torch.as_tensor([job.goal_config for job in jobs], dtype=self.dtype, device=self.device)
+        
+        updated_jobs = []
+        for index, job in enumerate(jobs):
+            max_dist = float(torch.max(torch.abs(goal_config[index] - start_config[index])).item())
+            min_time = (max_dist * 2.0) / max(0.8 * self.max_velocity, 1e-4)
+            min_dt = min_time / max(self.n_waypoints - 1, 1)
+            resolved_dt = max(float(job.dt), min_dt)
+            updated_jobs.append(dataclasses.replace(job, dt=resolved_dt))
+        jobs = updated_jobs
+
         latent = torch.nn.Parameter(
-            self._initialize_latent(start_config, goal_config, [job.seed for job in jobs], [job.dt for job in jobs])
+            self._initialize_latent(
+                start_config,
+                goal_config,
+                [job.seed for job in jobs],
+                [job.dt for job in jobs],
+                jobs=jobs,
+            )
         )
         optimizer = torch.optim.Adam([latent], lr=0.05)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.planner_steps)
@@ -763,12 +1126,14 @@ class TorchTrajectoryBatchPlanner:
         surrogate_dynamics = self._trajectory_dynamics_summary(best_trajectory, jobs)
         surrogate_collision = self._trajectory_collision_summary(best_trajectory, jobs)
         trajectories = best_trajectory.detach().cpu().numpy().astype(np.float64)
+        warm_start_metadata = self._latest_warm_start_metadata
         return [
             TorchPlannerResult(
                 worker_id=job.worker_id,
                 request_id=job.request_id,
                 order_index=job.order_index,
                 trajectory=trajectories[index],
+                dt=float(job.dt),
                 iterations=int(completed_steps),
                 final_optimization_cost=float(best_total_loss[index].detach().cpu().item()),
                 scalarized_surrogate_cost=float(best_scalarized[index].detach().cpu().item()),
@@ -779,6 +1144,7 @@ class TorchTrajectoryBatchPlanner:
                 surrogate_initial_trajectory_dynamics={
                     **serialize_trajectory_dynamics_summary(initial_surrogate_dynamics, index),
                     **serialize_trajectory_collision_summary(initial_surrogate_collision, index),
+                    **(warm_start_metadata[index] if index < len(warm_start_metadata) else {}),
                 },
                 surrogate_trajectory_dynamics={
                     **serialize_trajectory_dynamics_summary(surrogate_dynamics, index),
@@ -793,6 +1159,7 @@ class TorchTrajectoryBatchPlanner:
                     )
                     for optimizer_iteration, summary in dynamics_checkpoints
                 ),
+                warm_start_metadata=(warm_start_metadata[index] if index < len(warm_start_metadata) else {}),
             )
             for index, job in enumerate(jobs)
         ]

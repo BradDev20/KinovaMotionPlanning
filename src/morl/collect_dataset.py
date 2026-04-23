@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import cProfile
 import contextlib
+import dataclasses
 import io
 import json
 import multiprocessing as mp
@@ -10,10 +11,13 @@ import os
 import pstats
 import sys
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from queue import Empty
 
 from src.motion_planning.torch_trajopt import TorchPlannerJob, TorchPlannerResult
+
+import numpy as np
 
 from .collect_dataset_summary import (
     _repair_usage_summary,
@@ -36,6 +40,7 @@ from .dataset import (
     save_raw_record,
     save_split_manifest,
     summarize_records,
+    trajectory_distance,
 )
 from .planning import (
     PlannerConfig,
@@ -64,6 +69,142 @@ from .tasks import (
 )
 
 TASK_PROBE_RESTART_COUNT = 4
+
+MAX_SEEDS_PER_FAMILY = 8
+SEED_NOISE_SCALE = 0.03
+SEED_DISTINCT_TOL = 0.20
+
+
+@dataclass(frozen=True)
+class SeedEntry:
+    trajectory: np.ndarray  # float32, shape=(N, 7)
+    start_config: np.ndarray  # float32, shape=(7,)
+    goal_config: np.ndarray  # float32, shape=(7,)
+    task_id: str = ""
+    alpha: float | None = None
+    length_cost: float | None = None
+    obstacle_cost: float | None = None
+
+
+def _select_family_seed(
+    seeds: list[SeedEntry],
+    *,
+    start_config: np.ndarray,
+    goal_config: np.ndarray,
+    rng: np.random.Generator,
+    top_k: int = 3,
+) -> SeedEntry | None:
+    if not seeds:
+        return None
+    scored: list[tuple[float, int]] = []
+    for idx, entry in enumerate(seeds):
+        mismatch = float(np.linalg.norm(start_config - entry.start_config) + np.linalg.norm(goal_config - entry.goal_config))
+        scored.append((mismatch, idx))
+    scored.sort(key=lambda item: item[0])
+    k = max(1, min(int(top_k), len(scored)))
+    candidates = [idx for _, idx in scored[:k]]
+    chosen = int(rng.choice(np.asarray(candidates, dtype=np.int32)))
+    return seeds[chosen]
+
+
+def _select_extreme_seed(
+    seeds: list[SeedEntry],
+    *,
+    kind: str,
+) -> SeedEntry | None:
+    if not seeds:
+        return None
+    if kind == "safe":
+        candidates = [seed for seed in seeds if seed.obstacle_cost is not None]
+        return min(candidates, key=lambda seed: float(seed.obstacle_cost)) if candidates else None
+    if kind == "risky":
+        candidates = [seed for seed in seeds if seed.length_cost is not None]
+        return min(candidates, key=lambda seed: float(seed.length_cost)) if candidates else None
+    raise ValueError(f"Unknown extreme seed kind: {kind}")
+
+
+def _adapt_seed_trajectory(
+    seed: SeedEntry,
+    *,
+    start_config: np.ndarray,
+    goal_config: np.ndarray,
+) -> np.ndarray:
+    base = np.asarray(seed.trajectory, dtype=np.float32)
+    if base.ndim != 2 or base.shape[0] < 2 or base.shape[1] != start_config.shape[0]:
+        raise ValueError("Seed trajectory has an unexpected shape.")
+    delta_s = start_config.astype(np.float32) - seed.start_config.astype(np.float32)
+    delta_g = goal_config.astype(np.float32) - seed.goal_config.astype(np.float32)
+    n = int(base.shape[0])
+    fractions = np.linspace(0.0, 1.0, n, dtype=np.float32).reshape(n, 1)
+    shift = (1.0 - fractions) * delta_s.reshape(1, -1) + fractions * delta_g.reshape(1, -1)
+    adapted = (base + shift).astype(np.float32, copy=True)
+    adapted[0] = start_config.astype(np.float32)
+    adapted[-1] = goal_config.astype(np.float32)
+    return adapted
+
+
+def _maybe_add_family_seed(
+    seed_bank_by_family: dict[str, list[SeedEntry]],
+    *,
+    family: str,
+    candidate: SeedEntry,
+    distinct_tol: float = SEED_DISTINCT_TOL,
+    max_seeds: int = MAX_SEEDS_PER_FAMILY,
+) -> None:
+    seeds = seed_bank_by_family.setdefault(str(family), [])
+    # Replace near-duplicates if the candidate is "better" on an extreme metric; otherwise ignore.
+    for idx, existing in enumerate(list(seeds)):
+        if trajectory_distance(np.asarray(candidate.trajectory), np.asarray(existing.trajectory)) < float(distinct_tol):
+            better_safe = (
+                candidate.obstacle_cost is not None
+                and existing.obstacle_cost is not None
+                and float(candidate.obstacle_cost) < float(existing.obstacle_cost) - 1e-6
+            )
+            better_risky = (
+                candidate.length_cost is not None
+                and existing.length_cost is not None
+                and float(candidate.length_cost) < float(existing.length_cost) - 1e-6
+            )
+            if better_safe or better_risky:
+                seeds[idx] = candidate
+            return
+
+    if len(seeds) < int(max_seeds):
+        seeds.append(candidate)
+        return
+
+    # Bank is full: evict the most redundant non-protected seed (closest to another seed).
+    protected: set[int] = set()
+    safe_seed = _select_extreme_seed(seeds, kind="safe")
+    risky_seed = _select_extreme_seed(seeds, kind="risky")
+    if safe_seed is not None:
+        for idx, seed in enumerate(seeds):
+            if seed is safe_seed:
+                protected.add(idx)
+                break
+    if risky_seed is not None:
+        for idx, seed in enumerate(seeds):
+            if seed is risky_seed:
+                protected.add(idx)
+                break
+
+    min_neighbor_distance: list[tuple[float, int]] = []
+    for i, seed in enumerate(seeds):
+        if i in protected:
+            continue
+        best = float("inf")
+        for j, other in enumerate(seeds):
+            if i == j:
+                continue
+            d = trajectory_distance(np.asarray(seed.trajectory), np.asarray(other.trajectory))
+            if d < best:
+                best = float(d)
+        min_neighbor_distance.append((best, i))
+
+    if not min_neighbor_distance:
+        return
+    _, evict_idx = min(min_neighbor_distance, key=lambda item: item[0])
+    seeds[evict_idx] = candidate
 
 
 def parse_alpha_grid(alpha_grid: str | None, alpha_count: int, alpha_schedule: str) -> list[float]:
@@ -273,8 +414,8 @@ def _support_summary_for_records(
 
 def _planner_config_from_args(args: argparse.Namespace) -> PlannerConfig:
     safety_aggregate = "max" if args.benchmark_profile == "max_favoring" else "avg"
-    safety_decay_rate = 22.0 if args.benchmark_profile == "max_favoring" else 15.0
-    safety_bias = -0.04 if args.benchmark_profile == "max_favoring" else -0.08
+    safety_decay_rate = 50.0 if args.benchmark_profile == "max_favoring" else 40.0
+    safety_bias = 0.05 if args.benchmark_profile == "max_favoring" else 0.02
     safety_collision_penalty = 3.0 if args.benchmark_profile == "max_favoring" else 1.0
     return PlannerConfig(
         n_waypoints=args.n_waypoints,
@@ -435,6 +576,7 @@ def _collect_task_sequential(
     *,
     scene_dir: Path,
     planner_config: PlannerConfig,
+    seed_bank_by_family: dict[str, list[SeedEntry]] | None = None,
 ) -> list[CollectionJobResult]:
     try:
         context = prepare_task_planning_context(dispatch.task, scene_dir=scene_dir, planner_config=planner_config)
@@ -453,6 +595,54 @@ def _collect_task_sequential(
     probe_count = _probe_job_count(dispatch)
     probe_job_specs = job_specs[:probe_count]
     remaining_job_specs = job_specs[probe_count:]
+
+    # Optionally apply per-family legal seed warm-starts to the probe jobs.
+    # Keep restart_index=0 unseeded to preserve RRT warm-start exploration.
+    if seed_bank_by_family is not None:
+        family = str(dispatch.task.family)
+        seeds = seed_bank_by_family.get(family, [])
+        if seeds:
+            rng = np.random.default_rng(int(dispatch.task.planner_seed))
+            start_cfg = np.asarray(dispatch.task.start_config, dtype=np.float32)
+            goal_cfg = np.asarray(context.goal_config, dtype=np.float32)
+            safe_seed = _select_extreme_seed(seeds, kind="safe")
+            risky_seed = _select_extreme_seed(seeds, kind="risky")
+
+            updated_probe: list[tuple[float, int, TorchPlannerJob]] = []
+            for alpha, restart_index, job in probe_job_specs:
+                if int(restart_index) == 0:
+                    updated_probe.append((alpha, restart_index, job))
+                    continue
+                style = "random"
+                seed = None
+                if int(restart_index) == 1:
+                    style = "safe"
+                    seed = safe_seed
+                elif int(restart_index) == 2:
+                    style = "risky"
+                    seed = risky_seed
+                if seed is None:
+                    seed = _select_family_seed(seeds, start_config=start_cfg, goal_config=goal_cfg, rng=rng)
+                if seed is None:
+                    updated_probe.append((alpha, restart_index, job))
+                    continue
+                try:
+                    warm = _adapt_seed_trajectory(seed, start_config=start_cfg, goal_config=goal_cfg)
+                    updated_probe.append(
+                        (
+                            alpha,
+                            restart_index,
+                            dataclasses.replace(
+                                job,
+                                warm_start_trajectory=warm,
+                                warm_start_noise_scale=float(SEED_NOISE_SCALE),
+                                warm_start_tag=f"family_seed_{style}",
+                            ),
+                        )
+                    )
+                except Exception:
+                    updated_probe.append((alpha, restart_index, job))
+            probe_job_specs = updated_probe
     responses: dict[str, TorchPlannerResult] = {}
     for batch in _chunked(probe_job_specs, planner_config.gpu_batch_size):
         batch_results = run_torch_planner_batch([job for _, _, job in batch], planner_config=planner_config)
@@ -470,6 +660,55 @@ def _collect_task_sequential(
             job_specs=job_specs,
             attempted_jobs=probe_count,
         )
+    # If probe produced legal trajectories, promote both a "safe" (min obstacle) and a "risky" (min length)
+    # seed, and use them as warm starts for remaining jobs. This helps preserve nonconvex front coverage.
+    if seed_bank_by_family is not None and remaining_job_specs and _task_has_success(finalized_probe):
+        successful_records = [item.record for item in finalized_probe if item.record is not None]
+        if successful_records:
+            best_safe = min(successful_records, key=lambda rec: (float(rec["obstacle_cost"]), float(rec["length_cost"])))
+            best_risky = min(successful_records, key=lambda rec: (float(rec["length_cost"]), float(rec["obstacle_cost"])))
+
+            def _seed_from_record(rec: dict[str, object], *, tag: str) -> SeedEntry:
+                traj = np.asarray(rec["trajectory"], dtype=np.float32)
+                return SeedEntry(
+                    trajectory=traj,
+                    start_config=np.asarray(traj[0], dtype=np.float32),
+                    goal_config=np.asarray(traj[-1], dtype=np.float32),
+                    task_id=str(rec.get("task_id", dispatch.task.task_id)),
+                    alpha=float(rec.get("alpha")) if rec.get("alpha") is not None else None,
+                    length_cost=float(rec.get("length_cost")) if rec.get("length_cost") is not None else None,
+                    obstacle_cost=float(rec.get("obstacle_cost")) if rec.get("obstacle_cost") is not None else None,
+                )
+
+            safe_seed_entry = _seed_from_record(best_safe, tag="task_seed_safe")
+            risky_seed_entry = _seed_from_record(best_risky, tag="task_seed_risky")
+            _maybe_add_family_seed(seed_bank_by_family, family=str(dispatch.task.family), candidate=safe_seed_entry)
+            _maybe_add_family_seed(seed_bank_by_family, family=str(dispatch.task.family), candidate=risky_seed_entry)
+
+            start_cfg = np.asarray(dispatch.task.start_config, dtype=np.float32)
+            goal_cfg = np.asarray(context.goal_config, dtype=np.float32)
+            updated_remaining: list[tuple[float, int, TorchPlannerJob]] = []
+            for alpha, restart_index, job in remaining_job_specs:
+                chosen = safe_seed_entry if float(alpha) <= 0.5 else risky_seed_entry
+                style = "safe" if chosen is safe_seed_entry else "risky"
+                try:
+                    warm = _adapt_seed_trajectory(chosen, start_config=start_cfg, goal_config=goal_cfg)
+                    updated_remaining.append(
+                        (
+                            alpha,
+                            restart_index,
+                            dataclasses.replace(
+                                job,
+                                warm_start_trajectory=warm,
+                                warm_start_noise_scale=float(SEED_NOISE_SCALE),
+                                warm_start_tag=f"task_seed_{style}",
+                            ),
+                        )
+                    )
+                except Exception:
+                    updated_remaining.append((alpha, restart_index, job))
+            remaining_job_specs = updated_remaining
+
     for batch in _chunked(remaining_job_specs, planner_config.gpu_batch_size):
         batch_results = run_torch_planner_batch([job for _, _, job in batch], planner_config=planner_config)
         responses.update({result.request_id: result for result in batch_results})
@@ -530,6 +769,7 @@ def _collection_worker_main(
     quiet: bool = False,
 ) -> None:
     with _mute_stdio(bool(quiet)):
+        seed_bank_by_family: dict[str, list[SeedEntry]] = {}
         while True:
             dispatch = task_queue.get()
             if dispatch is None:
@@ -554,6 +794,51 @@ def _collection_worker_main(
             probe_count = _probe_job_count(dispatch)
             probe_job_specs = job_specs[:probe_count]
             remaining_job_specs = job_specs[probe_count:]
+
+            # Optional per-family seed warm start for probe jobs.
+            family = str(dispatch.task.family)
+            seeds = seed_bank_by_family.get(family, [])
+            if seeds:
+                rng = np.random.default_rng(int(dispatch.task.planner_seed))
+                start_cfg = np.asarray(dispatch.task.start_config, dtype=np.float32)
+                goal_cfg = np.asarray(context.goal_config, dtype=np.float32)
+                safe_seed = _select_extreme_seed(seeds, kind="safe")
+                risky_seed = _select_extreme_seed(seeds, kind="risky")
+                updated_probe: list[tuple[float, int, TorchPlannerJob]] = []
+                for alpha, restart_index, job in probe_job_specs:
+                    if int(restart_index) == 0:
+                        updated_probe.append((alpha, restart_index, job))
+                        continue
+                    style = "random"
+                    seed = None
+                    if int(restart_index) == 1:
+                        style = "safe"
+                        seed = safe_seed
+                    elif int(restart_index) == 2:
+                        style = "risky"
+                        seed = risky_seed
+                    if seed is None:
+                        seed = _select_family_seed(seeds, start_config=start_cfg, goal_config=goal_cfg, rng=rng)
+                    if seed is None:
+                        updated_probe.append((alpha, restart_index, job))
+                        continue
+                    try:
+                        warm = _adapt_seed_trajectory(seed, start_config=start_cfg, goal_config=goal_cfg)
+                        updated_probe.append(
+                            (
+                                alpha,
+                                restart_index,
+                                dataclasses.replace(
+                                    job,
+                                    warm_start_trajectory=warm,
+                                    warm_start_noise_scale=float(SEED_NOISE_SCALE),
+                                    warm_start_tag=f"family_seed_{style}",
+                                ),
+                            )
+                        )
+                    except Exception:
+                        updated_probe.append((alpha, restart_index, job))
+                probe_job_specs = updated_probe
             for _, _, job in probe_job_specs:
                 planner_request_queue.put(job)
 
@@ -579,6 +864,51 @@ def _collection_worker_main(
                 ):
                     result_queue.put(skipped)
                 continue
+
+            # Task-local seed for remaining jobs + promote into the family bank.
+            if remaining_job_specs and _task_has_success(finalized_probe):
+                successful_records = [item.record for item in finalized_probe if item.record is not None]
+                if successful_records:
+                    best_safe = min(successful_records, key=lambda rec: (float(rec["obstacle_cost"]), float(rec["length_cost"])))
+                    best_risky = min(successful_records, key=lambda rec: (float(rec["length_cost"]), float(rec["obstacle_cost"])))
+                    def _seed_from_record(rec: dict[str, object]) -> SeedEntry:
+                        traj = np.asarray(rec["trajectory"], dtype=np.float32)
+                        return SeedEntry(
+                            trajectory=traj,
+                            start_config=np.asarray(traj[0], dtype=np.float32),
+                            goal_config=np.asarray(traj[-1], dtype=np.float32),
+                            task_id=str(rec.get("task_id", dispatch.task.task_id)),
+                            alpha=float(rec.get("alpha")) if rec.get("alpha") is not None else None,
+                            length_cost=float(rec.get("length_cost")) if rec.get("length_cost") is not None else None,
+                            obstacle_cost=float(rec.get("obstacle_cost")) if rec.get("obstacle_cost") is not None else None,
+                        )
+                    safe_seed_entry = _seed_from_record(best_safe)
+                    risky_seed_entry = _seed_from_record(best_risky)
+                    _maybe_add_family_seed(seed_bank_by_family, family=family, candidate=safe_seed_entry)
+                    _maybe_add_family_seed(seed_bank_by_family, family=family, candidate=risky_seed_entry)
+                    start_cfg = np.asarray(dispatch.task.start_config, dtype=np.float32)
+                    goal_cfg = np.asarray(context.goal_config, dtype=np.float32)
+                    updated_remaining: list[tuple[float, int, TorchPlannerJob]] = []
+                    for alpha, restart_index, job in remaining_job_specs:
+                        chosen = safe_seed_entry if float(alpha) <= 0.5 else risky_seed_entry
+                        style = "safe" if chosen is safe_seed_entry else "risky"
+                        try:
+                            warm = _adapt_seed_trajectory(chosen, start_config=start_cfg, goal_config=goal_cfg)
+                            updated_remaining.append(
+                                (
+                                    alpha,
+                                    restart_index,
+                                    dataclasses.replace(
+                                        job,
+                                        warm_start_trajectory=warm,
+                                        warm_start_noise_scale=float(SEED_NOISE_SCALE),
+                                        warm_start_tag=f"task_seed_{style}",
+                                    ),
+                                )
+                            )
+                        except Exception:
+                            updated_remaining.append((alpha, restart_index, job))
+                    remaining_job_specs = updated_remaining
 
             for _, _, job in remaining_job_specs:
                 planner_request_queue.put(job)
@@ -745,6 +1075,7 @@ def collect_one_seed(
         with _mute_stdio(bool(args.quiet)):
             if args.num_workers <= 1:
                 ordered_results = []
+                seed_bank_by_family: dict[str, list[SeedEntry]] = {}
                 for task_index, task in enumerate(tasks):
                     dispatch = CollectionTaskDispatch(
                         task=task,
@@ -758,6 +1089,7 @@ def collect_one_seed(
                         dispatch,
                         scene_dir=scene_dir,
                         planner_config=planner_config,
+                        seed_bank_by_family=seed_bank_by_family,
                     )
                     ordered_results.extend(task_results)
                     for result in task_results:

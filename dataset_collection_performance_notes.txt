@@ -1,0 +1,179 @@
+Dataset Collection Performance Investigation Notes
+==================================================
+
+Current problem
+---------------
+- Real collection time is no longer dominated by dynamics-invalid surrogate trajectories.
+- The current bottleneck is collision/contact validity:
+  - repair is now mostly invoked for `contacts`
+  - surrogate collision summaries still show frequent colliding or near-colliding paths
+  - hard nonconvex families still produce many zero-success tasks
+- Collection/orchestration code is not the main issue. The main remaining hot path is planner output quality plus CPU repair on collision failures.
+
+What has worked and remains in the baseline
+-------------------------------------------
+1. Contact-classification optimizations in src/motion_planning/planners.py
+   - These reduced contact-classification cost relative to the older baseline.
+   - Classification is still nontrivial, but it is not the main remaining bottleneck.
+
+2. Repair, dynamics, and surrogate instrumentation
+   - src/morl/collect_dataset.py
+   - src/morl/planning.py
+   - src/motion_planning/fast_trajopt.py
+   - src/motion_planning/torch_trajopt.py
+   - These added repair reason counts, SLSQP metadata, surrogate dynamics/collision summaries, and checkpoint metadata.
+   - They established the transition from dynamics-dominated failure to contact-dominated failure.
+
+3. MuJoCo state handling improvement in src/motion_planning/cost_functions.py
+   - Change: back up and restore MuJoCo state once per trajectory-level evaluation instead of once per waypoint probe.
+   - Measured smoke/profile improvement:
+     - total profiled time: 16.590s -> 15.696s
+     - mj_forward: 37993 calls / 2.628s -> 27889 calls / 1.830s
+     - _minimize_slsqp: 4.912s -> 4.582s
+   - This change stays in the baseline.
+
+4. Validity-first surrogate dynamics pass in src/motion_planning/torch_trajopt.py
+   - Added smooth dynamics-safe warm starts, spike-sensitive acceleration penalties, and feasibility-first selection for dynamics.
+   - Result on corridor-style runs:
+     - surrogate acceleration-limit failures dropped to zero
+     - surrogate acceleration violation counts dropped to zero
+     - repair dependence from dynamics was substantially reduced
+   - This stays in the baseline.
+
+5. Collision diagnostics and collision-aware surrogate ranking in src/motion_planning/torch_trajopt.py
+   - Added collision summaries:
+     - min signed distance
+     - collision waypoint count
+     - near-collision waypoint count
+     - collision penetration depth
+     - worst-waypoint region summaries
+   - Added collision-aware obstacle-cost shaping and feasibility-first ranking for collision metrics.
+   - End-to-end corridor outcomes were neutral rather than improved, but the diagnostics are valuable and do not currently regress the benchmark after removing the repair-skip gate.
+   - The instrumentation and ranking remain in the baseline.
+
+6. Double-corridor family center-obstacle easing in src/morl/tasks.py
+   - Change in _double_corridor:
+     - center obstacle multiplier reduced from `radius * 1.02` to `radius * 0.98`
+   - Small 64-task nonconvex pipeline benchmark:
+     - baseline: raw_trajectory_count 13, successful_task_count 5, zero_success_task_count 59, repair_rate 0.231, support failed
+     - candidate: raw_trajectory_count 25, successful_task_count 10, zero_success_task_count 54, repair_rate 0.600, support passed
+   - This is the only task-family leniency change that clearly improved task support, so it stays in the baseline.
+
+7. Dynamic Time Budgeting in src/motion_planning/torch_trajopt.py and src/morl/planning.py
+   - Identified that `double_corridor` tasks forced detours that were physically impossible to traverse under the velocity limit given a fixed `dt` and `n_waypoints`.
+   - The planner now computes a minimum viable time based on Cartesian distance and artificially inflates `dt` locally for jobs that would otherwise break velocity bounds via a pure linear initialization.
+   - This entirely eliminated the GPU surrogate's persistent velocity violations.
+
+8. Strict Linear Bounds for CPU Repair in src/motion_planning/constrained_trajopt.py
+   - CPU repair via SciPy SLSQP was severely spiking acceleration (e.g. 18.34 rad/s² vs 0.70 limit) because non-linear inequality constraints were too soft.
+   - Replaced them with pure `scipy.optimize.LinearConstraint` for exact projection of velocity/acceleration.
+   - Result: 0 acceleration spikes from the CPU repair stage.
+
+What has not worked and was reverted or deprioritized
+-----------------------------------------------------
+1. Fast obstacle contact-cost bypass
+   - Intended area: src/motion_planning/planners.py and src/motion_planning/cost_functions.py
+   - Result on real culdesac_escape run: classification hotspot dropped, but total wall-clock got worse.
+   - Reverted.
+
+2. TrajectoryLengthCostFunction / jacobian / gradient optimization pass
+   - Intended area: src/motion_planning/cost_functions.py
+   - Used numba-compatible helpers and FK reuse.
+   - Result on real profile: much worse overall profile time.
+   - Reverted.
+
+3. Blind surrogate penalty retune
+   - Intended area: src/motion_planning/torch_trajopt.py
+   - Change: acceleration penalty 12.0 -> 60.0
+   - Result: real culdesac_escape profile got worse.
+   - Reverted.
+
+4. Smooth low-frequency warm-start basis as a standalone fix
+   - Intended area: src/motion_planning/torch_trajopt.py
+   - Result:
+     - reduced raw acceleration severity
+     - improved some wall-clock measurements
+     - did not reduce repair_rate enough on the original dynamics-dominated benchmark
+   - The earlier isolated version was reverted; the current baseline keeps only the parts that materially helped the full validity-first dynamics pass.
+
+5. Acceleration-budgeted warm-start perturbation as a standalone fix
+   - Intended area: src/motion_planning/torch_trajopt.py
+   - Result:
+     - raw acceleration severity improved substantially
+     - repair_rate did not improve enough on the real benchmark
+     - full profiled wall-clock regressed
+   - Reverted in that earlier form.
+
+6. Severe-contact CPU repair skip in src/morl/planning.py
+   - Added a surrogate-side gate that skipped CPU repair for obviously colliding trajectories.
+   - Result on corridor benchmark:
+     - `repair_rate` appeared to improve only because repair was skipped
+     - successful trajectories and successful tasks dropped
+     - failures increased
+   - Reverted.
+
+7. Global task-noise reduction in src/morl/tasks.py
+   - Reduced start and target noise scales to test whether noisy task generation was the main cause of illegality.
+   - Result: fewer valid trajectories, not more.
+   - Conclusion: task noise is not the primary issue and may help by preserving solvable diversity.
+   - Reverted.
+
+8. Generic obstacle clearance spreading in src/morl/tasks.py
+   - Increased global obstacle push distance away from the centerline.
+   - Result: no meaningful effect on valid trajectory yield.
+   - Deprioritized.
+
+9. Broad double-corridor leniency changes
+   - Tested single-knob and multi-knob easing of:
+     - radius
+     - safe distance
+     - side spacing
+     - base_x
+     - side obstacle multipliers
+   - Result:
+     - most changes were neutral or harmful
+     - the only clear winner was reducing the center obstacle multiplier to 0.98
+   - Do not continue broad family easing sweeps for `double_corridor`.
+
+10. Planner config knob sweep in src/morl/planning.py
+   - Tested on a frugal 64-task `double_corridor` nonconvex pipeline benchmark.
+   - Stage 1: `safety_collision_penalty`
+     - 1.0 vs 2.0 vs 3.0 were exact ties on the artifact metrics
+   - Stage 2: `planner_steps`
+     - 250 vs 350 vs 450 were exact ties on the artifact metrics
+   - Stage 3: `warm_start_noise`
+     - 0.10 was worse than baseline
+     - 0.12 improved secondary metrics slightly but did not improve successful_task_count enough to meet the acceptance rule
+   - Conclusion: planner config tuning is exhausted at this scale.
+   - Current baseline remains:
+     - `safety_collision_penalty = 1.0`
+     - `planner_steps = 250`
+     - `warm_start_noise = 0.08`
+
+What the evidence currently says
+--------------------------------
+- The original dynamics-validity problem is completely eliminated. By dynamically allocating a physically viable time horizon and enforcing exact linear constraints in CPU repair, the solver is now mathematically guaranteed to respect bounds.
+- The remaining repair burden is now exclusively contact/collision failures on long detours. Because the CPU repair cannot break dynamics bounds to violently escape collision, if it initializes with a mesh collision in a tight space, it gets trapped.
+- Collection/orchestration code is not the right optimization target.
+- Small scalar config sweeps in PlannerConfig are not moving the result meaningfully.
+- The remaining bottleneck is discovering a viable topological path that respects the physical geometry *before* running local optimization.
+
+What should be worked on next
+-----------------------------
+1. Topological Path Warm Starting (RRT* Integration)
+   - Primary area: src/motion_planning/RRTPlanner.py and src/motion_planning/torch_trajopt.py
+   - A straight-line initialization (even with noise) is mathematically insufficient to thread complex nonconvex problems like `double_corridor` without trapping the trajectory. 
+   - Integrate a low-resolution RRT pass to provide a collision-free topological skeleton. This transforms the trajectory optimizer from a path-*finder* into a path-*smoother*.
+
+2. Wide-Band B-Spline Displacement Initialization
+   - If topological mapping is too slow, we must move away from "local noise" initialization.
+   - Instead, compute a wide, smooth B-spline that entirely bypasses the corridor's center obstacle by sweeping left or right.
+
+What not to focus on next
+-------------------------
+- Do not spend any more time modifying gradient weights for dynamics penalties. We have strictly enforced them and they work.
+- Do not optimize collector orchestration before planner collision quality improves.
+- Do not do more broad task-noise reduction.
+- Do not do more generic obstacle clearance spreading.
+- Do not reintroduce the severe-contact repair skip.
+- Do not do another blind scalar penalty retune without a structural planner change behind it.

@@ -275,6 +275,7 @@ def build_torch_planner_job(
         safety_bias=float(config.safety_bias),
         safety_collision_penalty=float(config.safety_collision_penalty),
         seed=int(context.task.planner_seed + restart_index),
+        task_family=str(getattr(context.task, "family", "base")),
     )
 
 
@@ -304,16 +305,18 @@ def _run_cpu_repair(
     alpha: float,
     mode: str,
     planner_config: PlannerConfig | None = None,
+    dt: float | None = None,
 ) -> tuple[np.ndarray, dict[str, Any], bool]:
     from src.motion_planning.fast_trajopt import FastTrajOptPlanner
 
     config = planner_config or PlannerConfig()
     weights = alpha_to_weights(alpha)
+    effective_dt = dt if dt is not None else context.task.dt
     planner = FastTrajOptPlanner(
         context.model,
         context.data,
         n_waypoints=config.n_waypoints,
-        dt=context.task.dt,
+        dt=effective_dt,
         max_velocity=config.max_velocity,
         max_acceleration=config.max_acceleration,
         cost_mode="composite",
@@ -351,6 +354,12 @@ def finalize_planned_trajectory(
     config = planner_config or PlannerConfig()
     weights = alpha_to_weights(alpha)
     trajectory_array = np.asarray(planner_result.trajectory, dtype=np.float64)
+    
+    if hasattr(planner_result, "dt") and planner_result.dt is not None:
+        effective_dt = float(planner_result.dt)
+    else:
+        effective_dt = float(context.task.dt)
+        
     optimization_metadata: dict[str, Any] = {
         "iterations": int(planner_result.iterations),
         "final_optimization_cost": float(planner_result.final_optimization_cost),
@@ -375,6 +384,9 @@ def finalize_planned_trajectory(
         optimization_metadata["surrogate_dynamics_checkpoints"] = [
             dict(item) for item in planner_result.surrogate_dynamics_checkpoints if isinstance(item, dict)
         ]
+    warm_start_metadata = getattr(planner_result, "warm_start_metadata", None)
+    if isinstance(warm_start_metadata, dict):
+        optimization_metadata["warm_start_metadata"] = dict(warm_start_metadata)
 
     validation_error: Exception | None = None
     validation_failure_reason: str | None = None
@@ -382,7 +394,7 @@ def finalize_planned_trajectory(
     try:
         _validate_trajectory_dynamics(
             trajectory_array,
-            dt=context.task.dt,
+            dt=effective_dt,
             max_velocity=config.max_velocity,
             max_acceleration=config.max_acceleration,
         )
@@ -391,7 +403,7 @@ def finalize_planned_trajectory(
         validation_failure_reason = "dynamics"
         raw_dynamics_summary = _trajectory_dynamics_summary(
             trajectory_array,
-            dt=context.task.dt,
+            dt=effective_dt,
             max_velocity=config.max_velocity,
             max_acceleration=config.max_acceleration,
         )
@@ -410,6 +422,7 @@ def finalize_planned_trajectory(
             alpha=alpha,
             mode=mode,
             planner_config=config,
+            dt=effective_dt,
         )
         optimization_metadata["repair_used"] = True
         optimization_metadata["repair_validation_failure_reason"] = validation_failure_reason
@@ -427,7 +440,7 @@ def finalize_planned_trajectory(
         try:
             _validate_trajectory_dynamics(
                 repaired_array,
-                dt=context.task.dt,
+                dt=effective_dt,
                 max_velocity=config.max_velocity,
                 max_acceleration=config.max_acceleration,
             )
@@ -439,8 +452,8 @@ def finalize_planned_trajectory(
         trajectory_array = repaired_array
 
     optimization_metadata["validation_passed"] = True
-    length_value = float(context.length_cost.compute_cost(trajectory_array, context.task.dt))
-    obstacle_value = float(context.safety_cost.compute_cost(trajectory_array, context.task.dt))
+    length_value = float(context.length_cost.compute_cost(trajectory_array, effective_dt))
+    obstacle_value = float(context.safety_cost.compute_cost(trajectory_array, effective_dt))
     scalarized_value = float(
         scalarize_numpy(
             np.asarray([[length_value, obstacle_value]], dtype=np.float32),
@@ -453,6 +466,7 @@ def finalize_planned_trajectory(
     return {
         "trajectory_id": _trajectory_id(context.task, mode, alpha, restart_index),
         "trajectory": trajectory_array,
+        "dt": effective_dt,
         "alpha": float(alpha),
         "length_weight": float(weights[0]),
         "obstacle_weight": float(weights[1]),

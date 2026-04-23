@@ -4,7 +4,7 @@ import time
 from typing import List, Tuple, Optional, Dict, Any
 from src.numba_compat import numba_njit
 from .unconstrained_trajopt import UnconstrainedTrajOptPlanner
-from scipy.optimize import minimize
+from scipy.optimize import minimize, LinearConstraint
 
 
 @numba_njit(cache=True)
@@ -321,53 +321,41 @@ class ConstrainedTrajOptPlanner(UnconstrainedTrajOptPlanner):
             return jacobian
 
     def _create_constraints(self):
-        """Create constraint dictionaries for scipy.optimize.minimize"""
+        """Create constraint dictionaries for scipy.optimize.minimize"""      
         constraints = []
+
+        n_traj_vars = self.n_waypoints * self.n_dof
+        has_t = self._is_max_constrained_mode()
         
-        # Wrapper functions to handle augmented vector in max_constrained mode
-        def velocity_constraint_wrapper(x):
-            traj_vec, _ = self._extract_trajectory_and_t(x)
-            return self._compute_velocity_constraints(traj_vec)
-        
-        def velocity_jac_wrapper(x):
-            traj_vec, _ = self._extract_trajectory_and_t(x)
-            jac = self._compute_velocity_constraint_jacobian(traj_vec)
-            if self._is_max_constrained_mode():
-                # Pad with zeros for t variable
-                jac = np.hstack([jac, np.zeros((jac.shape[0], 1))])
-            return jac
-        
-        def acceleration_constraint_wrapper(x):
-            traj_vec, _ = self._extract_trajectory_and_t(x)
-            return self._compute_acceleration_constraints(traj_vec)
-        
-        def acceleration_jac_wrapper(x):
-            traj_vec, _ = self._extract_trajectory_and_t(x)
-            jac = self._compute_acceleration_constraint_jacobian(traj_vec)
-            if self._is_max_constrained_mode():
-                # Pad with zeros for t variable
-                jac = np.hstack([jac, np.zeros((jac.shape[0], 1))])
-            return jac
-        
+        # 1. Velocity Constraints (Linear)
+        if self.n_waypoints >= 2:
+            D_vel = np.eye(self.n_waypoints - 1, self.n_waypoints, k=1) - np.eye(self.n_waypoints - 1, self.n_waypoints, k=0)
+            A_vel = np.kron(D_vel, np.eye(self.n_dof))
+            if has_t:
+                A_vel = np.hstack([A_vel, np.zeros((A_vel.shape[0], 1))])
+            
+            v_bound = float(self.max_velocity) * float(self.dt)
+            lb_vel = np.full(A_vel.shape[0], -v_bound)
+            ub_vel = np.full(A_vel.shape[0], v_bound)
+            
+            constraints.append(LinearConstraint(A_vel, lb_vel, ub_vel))
+
+        # 2. Acceleration Constraints (Linear)
+        if self.n_waypoints >= 3:
+            D_acc = np.eye(self.n_waypoints - 2, self.n_waypoints, k=0) - 2 * np.eye(self.n_waypoints - 2, self.n_waypoints, k=1) + np.eye(self.n_waypoints - 2, self.n_waypoints, k=2)
+            A_acc = np.kron(D_acc, np.eye(self.n_dof))
+            if has_t:
+                A_acc = np.hstack([A_acc, np.zeros((A_acc.shape[0], 1))])
+                
+            a_bound = float(self.max_acceleration) * float(self.dt) * float(self.dt)
+            lb_acc = np.full(A_acc.shape[0], -a_bound)
+            ub_acc = np.full(A_acc.shape[0], a_bound)
+            
+            constraints.append(LinearConstraint(A_acc, lb_acc, ub_acc))
+
         def z_constraint_wrapper(x):
             traj_vec, _ = self._extract_trajectory_and_t(x)
             return self._compute_fixed_z_constraints(traj_vec)
-        
-        # Velocity constraints
-        velocity_constraint = {
-            'type': 'ineq',
-            'fun': velocity_constraint_wrapper,
-            'jac': velocity_jac_wrapper
-        }
-        constraints.append(velocity_constraint)
-        
-        # Acceleration constraints
-        acceleration_constraint = {
-            'type': 'ineq',
-            'fun': acceleration_constraint_wrapper,
-            'jac': acceleration_jac_wrapper
-        }
-        constraints.append(acceleration_constraint)
 
         if self._z_con_enabled:
             # Let SLSQP estimate Jacobian numerically: omit 'jac' for simplicity.
@@ -375,7 +363,7 @@ class ConstrainedTrajOptPlanner(UnconstrainedTrajOptPlanner):
                 'type': 'ineq',
                 'fun': z_constraint_wrapper
             })
-        
+
         # Epigraph constraints for max_constrained mode
         if self._is_max_constrained_mode():
             epigraph_constraint = {
