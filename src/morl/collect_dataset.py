@@ -123,6 +123,42 @@ def _select_extreme_seed(
     raise ValueError(f"Unknown extreme seed kind: {kind}")
 
 
+def _select_diverse_risky_seed(
+    seeds: list[SeedEntry],
+    *,
+    safe_seed: SeedEntry | None,
+    top_n: int = 5,
+) -> SeedEntry | None:
+    candidates = [seed for seed in seeds if seed.length_cost is not None]
+    if not candidates:
+        return None
+    candidates.sort(key=lambda seed: float(seed.length_cost))
+    shortlist = candidates[: max(1, min(int(top_n), len(candidates)))]
+    if safe_seed is None:
+        return shortlist[0]
+    # Prefer a risky seed that is topologically distinct from the safe seed when possible.
+    return max(
+        shortlist,
+        key=lambda seed: trajectory_distance(np.asarray(seed.trajectory), np.asarray(safe_seed.trajectory)),
+    )
+
+
+def _select_diverse_risky_record(
+    records: list[dict[str, object]],
+    *,
+    safe_record: dict[str, object] | None,
+    top_n: int = 5,
+) -> dict[str, object] | None:
+    if not records:
+        return None
+    sorted_by_length = sorted(records, key=lambda rec: (float(rec["length_cost"]), float(rec["obstacle_cost"])))
+    shortlist = sorted_by_length[: max(1, min(int(top_n), len(sorted_by_length)))]
+    if safe_record is None:
+        return shortlist[0]
+    safe_traj = np.asarray(safe_record["trajectory"], dtype=np.float32)
+    return max(shortlist, key=lambda rec: trajectory_distance(np.asarray(rec["trajectory"], dtype=np.float32), safe_traj))
+
+
 def _adapt_seed_trajectory(
     seed: SeedEntry,
     *,
@@ -606,7 +642,7 @@ def _collect_task_sequential(
             start_cfg = np.asarray(dispatch.task.start_config, dtype=np.float32)
             goal_cfg = np.asarray(context.goal_config, dtype=np.float32)
             safe_seed = _select_extreme_seed(seeds, kind="safe")
-            risky_seed = _select_extreme_seed(seeds, kind="risky")
+            risky_seed = _select_diverse_risky_seed(seeds, safe_seed=safe_seed)
 
             updated_probe: list[tuple[float, int, TorchPlannerJob]] = []
             for alpha, restart_index, job in probe_job_specs:
@@ -666,7 +702,7 @@ def _collect_task_sequential(
         successful_records = [item.record for item in finalized_probe if item.record is not None]
         if successful_records:
             best_safe = min(successful_records, key=lambda rec: (float(rec["obstacle_cost"]), float(rec["length_cost"])))
-            best_risky = min(successful_records, key=lambda rec: (float(rec["length_cost"]), float(rec["obstacle_cost"])))
+            best_risky = _select_diverse_risky_record(successful_records, safe_record=best_safe) or best_safe
 
             def _seed_from_record(rec: dict[str, object], *, tag: str) -> SeedEntry:
                 traj = np.asarray(rec["trajectory"], dtype=np.float32)
@@ -803,7 +839,7 @@ def _collection_worker_main(
                 start_cfg = np.asarray(dispatch.task.start_config, dtype=np.float32)
                 goal_cfg = np.asarray(context.goal_config, dtype=np.float32)
                 safe_seed = _select_extreme_seed(seeds, kind="safe")
-                risky_seed = _select_extreme_seed(seeds, kind="risky")
+                risky_seed = _select_diverse_risky_seed(seeds, safe_seed=safe_seed)
                 updated_probe: list[tuple[float, int, TorchPlannerJob]] = []
                 for alpha, restart_index, job in probe_job_specs:
                     if int(restart_index) == 0:
@@ -870,7 +906,7 @@ def _collection_worker_main(
                 successful_records = [item.record for item in finalized_probe if item.record is not None]
                 if successful_records:
                     best_safe = min(successful_records, key=lambda rec: (float(rec["obstacle_cost"]), float(rec["length_cost"])))
-                    best_risky = min(successful_records, key=lambda rec: (float(rec["length_cost"]), float(rec["obstacle_cost"])))
+                    best_risky = _select_diverse_risky_record(successful_records, safe_record=best_safe) or best_safe
                     def _seed_from_record(rec: dict[str, object]) -> SeedEntry:
                         traj = np.asarray(rec["trajectory"], dtype=np.float32)
                         return SeedEntry(
