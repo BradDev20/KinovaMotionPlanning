@@ -13,7 +13,7 @@ from src.numba_compat import numba_njit
 from .config import EnvConfig
 from .schemas import TaskSpec
 from .scalarization import hypervolume_2d, pareto_front
-from .tasks import NONCONVEX_FAMILIES, load_tasks
+from .tasks import JOINT_LIMITS_LOWER, JOINT_LIMITS_UPPER, NONCONVEX_FAMILIES, load_tasks
 
 if TYPE_CHECKING:
     pass
@@ -293,7 +293,7 @@ def record_to_transition_arrays(
     record: dict[str, Any],
     scene_dir: str | Path,
     env_config: "EnvConfig | None" = None,
-) -> dict[str, np.ndarray]:
+) -> tuple[dict[str, np.ndarray], dict[str, float | int]]:
     from .env import KinovaMORLEnv
 
     task = TaskSpec.from_dict(record["task_spec"])
@@ -318,16 +318,45 @@ def record_to_transition_arrays(
     planner_modes = []
     alphas = []
     weight_vectors = []
+    transition_replay_step_count = 0
+    action_clip_step_count = 0
+    joint_limit_hit_step_count = 0
+    constraint_hit_step_count = 0
+    max_abs_planned_action = 0.0
+    max_abs_executed_action = 0.0
+    step_eps = 1e-6
+    limit_eps = 1e-5
 
     observation, _ = env.reset(start_config=trajectory[0])
     observation_dim = int(observation.shape[0])
     action_dim = int(trajectory.shape[1])
+    action_limit = float(env._effective_action_scale())
     for index in range(len(trajectory) - 1):
-        action = trajectory[index + 1] - trajectory[index]
-        next_observation, reward_vector, objective_vector, done, _ = env.step(action, clip_action=False)
+        planned_action = trajectory[index + 1] - trajectory[index]
+        clipped_action = np.clip(planned_action, -action_limit, action_limit).astype(np.float32)
+        previous_qpos = env.qpos.copy()
+        next_observation, reward_vector, objective_vector, done, _ = env.step(planned_action, clip_action=True)
+        executed_action = (env.qpos - previous_qpos).astype(np.float32)
+        transition_replay_step_count += 1
+        max_abs_planned_action = max(max_abs_planned_action, float(np.max(np.abs(planned_action))))
+        max_abs_executed_action = max(max_abs_executed_action, float(np.max(np.abs(executed_action))))
+        action_was_clipped = bool(np.any(np.abs(planned_action - clipped_action) > step_eps))
+        if action_was_clipped:
+            action_clip_step_count += 1
+        joint_limit_hit = bool(np.any(np.abs(executed_action - clipped_action) > step_eps))
+        if not joint_limit_hit:
+            lower_hit = np.abs(env.qpos - JOINT_LIMITS_LOWER) <= limit_eps
+            upper_hit = np.abs(env.qpos - JOINT_LIMITS_UPPER) <= limit_eps
+            attempted_past_lower = clipped_action < -step_eps
+            attempted_past_upper = clipped_action > step_eps
+            joint_limit_hit = bool(np.any((lower_hit & attempted_past_lower) | (upper_hit & attempted_past_upper)))
+        if joint_limit_hit:
+            joint_limit_hit_step_count += 1
+        if action_was_clipped or joint_limit_hit:
+            constraint_hit_step_count += 1
         is_terminal = bool(done or index == len(trajectory) - 2)
         observations.append(observation.copy())
-        actions.append(action.copy())
+        actions.append(executed_action.copy())
         next_observations.append(next_observation.copy())
         reward_vectors.append(reward_vector.copy())
         objective_vectors.append(objective_vector.copy())
@@ -341,19 +370,33 @@ def record_to_transition_arrays(
         if is_terminal:
             break
 
-    return {
-        "observations": np.asarray(observations, dtype=np.float32).reshape(-1, observation_dim),
-        "actions": np.asarray(actions, dtype=np.float32).reshape(-1, action_dim),
-        "next_observations": np.asarray(next_observations, dtype=np.float32).reshape(-1, observation_dim),
-        "reward_vectors": np.asarray(reward_vectors, dtype=np.float32).reshape(-1, 2),
-        "objective_vectors": np.asarray(objective_vectors, dtype=np.float32).reshape(-1, 2),
-        "dones": np.asarray(dones, dtype=np.bool_),
-        "task_ids": np.asarray(task_ids),
-        "trajectory_ids": np.asarray(trajectory_ids),
-        "planner_modes": np.asarray(planner_modes),
-        "alphas": np.asarray(alphas, dtype=np.float32),
-        "weights": np.asarray(weight_vectors, dtype=np.float32),
-    }
+    denominator = float(transition_replay_step_count) if transition_replay_step_count > 0 else 1.0
+    return (
+        {
+            "observations": np.asarray(observations, dtype=np.float32).reshape(-1, observation_dim),
+            "actions": np.asarray(actions, dtype=np.float32).reshape(-1, action_dim),
+            "next_observations": np.asarray(next_observations, dtype=np.float32).reshape(-1, observation_dim),
+            "reward_vectors": np.asarray(reward_vectors, dtype=np.float32).reshape(-1, 2),
+            "objective_vectors": np.asarray(objective_vectors, dtype=np.float32).reshape(-1, 2),
+            "dones": np.asarray(dones, dtype=np.bool_),
+            "task_ids": np.asarray(task_ids),
+            "trajectory_ids": np.asarray(trajectory_ids),
+            "planner_modes": np.asarray(planner_modes),
+            "alphas": np.asarray(alphas, dtype=np.float32),
+            "weights": np.asarray(weight_vectors, dtype=np.float32),
+        },
+        {
+            "transition_replay_step_count": int(transition_replay_step_count),
+            "action_clip_step_count": int(action_clip_step_count),
+            "joint_limit_hit_step_count": int(joint_limit_hit_step_count),
+            "constraint_hit_step_count": int(constraint_hit_step_count),
+            "action_clip_rate": float(action_clip_step_count) / denominator,
+            "joint_limit_hit_rate": float(joint_limit_hit_step_count) / denominator,
+            "constraint_hit_rate": float(constraint_hit_step_count) / denominator,
+            "max_abs_planned_action": float(max_abs_planned_action),
+            "max_abs_executed_action": float(max_abs_executed_action),
+        },
+    )
 
 
 def _empty_transition_arrays() -> dict[str, np.ndarray]:
@@ -404,16 +447,41 @@ def build_transition_dataset(
         "alphas": [],
         "weights": [],
     }
+    diagnostics_totals: dict[str, float] = {
+        "transition_replay_step_count": 0.0,
+        "action_clip_step_count": 0.0,
+        "joint_limit_hit_step_count": 0.0,
+        "constraint_hit_step_count": 0.0,
+        "max_abs_planned_action": 0.0,
+        "max_abs_executed_action": 0.0,
+    }
 
     for record in records_list:
-        record_arrays = record_to_transition_arrays(record, scene_dir=scene_dir, env_config=env_config)
+        record_arrays, record_diagnostics = record_to_transition_arrays(record, scene_dir=scene_dir, env_config=env_config)
         for key, value in record_arrays.items():
             arrays[key].append(value)
+        diagnostics_totals["transition_replay_step_count"] += float(record_diagnostics["transition_replay_step_count"])
+        diagnostics_totals["action_clip_step_count"] += float(record_diagnostics["action_clip_step_count"])
+        diagnostics_totals["joint_limit_hit_step_count"] += float(record_diagnostics["joint_limit_hit_step_count"])
+        diagnostics_totals["constraint_hit_step_count"] += float(record_diagnostics["constraint_hit_step_count"])
+        diagnostics_totals["max_abs_planned_action"] = max(
+            diagnostics_totals["max_abs_planned_action"],
+            float(record_diagnostics["max_abs_planned_action"]),
+        )
+        diagnostics_totals["max_abs_executed_action"] = max(
+            diagnostics_totals["max_abs_executed_action"],
+            float(record_diagnostics["max_abs_executed_action"]),
+        )
 
     merged = {}
     for key, parts in arrays.items():
         merged[key] = np.concatenate(parts, axis=0) if parts else _empty_transition_arrays()[key]
 
+    transition_replay_step_count = int(diagnostics_totals["transition_replay_step_count"])
+    denominator = float(transition_replay_step_count) if transition_replay_step_count > 0 else 1.0
+    action_clip_step_count = int(diagnostics_totals["action_clip_step_count"])
+    joint_limit_hit_step_count = int(diagnostics_totals["joint_limit_hit_step_count"])
+    constraint_hit_step_count = int(diagnostics_totals["constraint_hit_step_count"])
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(output, **merged)
@@ -422,6 +490,15 @@ def build_transition_dataset(
         "observation_dim": int(merged["observations"].shape[1]),
         "action_dim": int(merged["actions"].shape[1]),
         "trajectory_count": len(records_list),
+        "transition_replay_step_count": transition_replay_step_count,
+        "action_clip_step_count": action_clip_step_count,
+        "action_clip_rate": float(action_clip_step_count) / denominator,
+        "joint_limit_hit_step_count": joint_limit_hit_step_count,
+        "joint_limit_hit_rate": float(joint_limit_hit_step_count) / denominator,
+        "constraint_hit_step_count": constraint_hit_step_count,
+        "constraint_hit_rate": float(constraint_hit_step_count) / denominator,
+        "max_abs_planned_action": float(diagnostics_totals["max_abs_planned_action"]),
+        "max_abs_executed_action": float(diagnostics_totals["max_abs_executed_action"]),
     }
 
 

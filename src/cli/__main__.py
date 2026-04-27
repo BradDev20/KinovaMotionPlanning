@@ -275,6 +275,80 @@ def run_eval(args: argparse.Namespace) -> None:
     evaluate_main(_build_eval_backend_argv(args, dataset_dir=dataset_dir, checkpoint_path=checkpoint_path))
 
 
+def run_seed_sweep(args: argparse.Namespace) -> None:
+    from src.morl.seed_sweep import main as seed_sweep_main
+
+    dataset_dir = _resolve_dataset_dir(args)
+    _require_path(dataset_dir, label="Dataset directory")
+
+    if args.checkpoint_root:
+        checkpoint_root = Path(args.checkpoint_root)
+    elif args.run:
+        checkpoint_root = checkpoint_dir_for_run(args.run, args.mode, root=args.root).parent
+    elif dataset_dir.name == "dataset":
+        checkpoint_root = dataset_dir.parent / "checkpoints"
+    else:
+        checkpoint_root = dataset_dir / "checkpoints"
+
+    if args.evaluation_root:
+        evaluation_root = Path(args.evaluation_root)
+    elif args.run:
+        evaluation_root = evaluation_dir_for_run(args.run, args.mode, root=args.root)
+    elif dataset_dir.name == "dataset":
+        evaluation_root = dataset_dir.parent / "evaluation"
+    else:
+        evaluation_root = dataset_dir / "evaluation"
+
+    argv: list[str] = [
+        "--dataset-dir",
+        str(dataset_dir),
+        "--mode",
+        args.mode,
+        "--checkpoint-root",
+        str(checkpoint_root),
+        "--evaluation-root",
+        str(evaluation_root),
+        "--split",
+        args.split,
+        "--alpha-grid",
+        args.alpha_grid,
+        "--rho",
+        str(args.rho),
+        "--device",
+        args.device or "cpu",
+        "--alpha-conditioning-mode",
+        args.alpha_conditioning_mode,
+        "--epochs",
+        str(args.epochs),
+        "--batch-size",
+        str(args.batch_size),
+        "--hidden-dim",
+        str(args.hidden_dim),
+        "--lr",
+        str(args.lr),
+        "--gamma",
+        str(args.gamma),
+        "--expectile",
+        str(args.expectile),
+        "--beta",
+        str(args.beta),
+        "--max-joint-velocity",
+        str(args.max_joint_velocity),
+        "--seed-count",
+        str(args.seed_count),
+        "--seed-start",
+        str(args.seed_start),
+    ]
+    _append_option(argv, "--seeds", args.seeds)
+    _append_option(argv, "--steps-per-epoch", args.steps_per_epoch)
+    _append_option(argv, "--max-steps", args.max_steps)
+    _append_option(argv, "--summary-json", args.summary_json)
+    _append_option(argv, "--summary-csv", args.summary_csv)
+    _append_flag(argv, "--stochastic", bool(args.stochastic))
+    _append_flag(argv, "--no-skip-existing", bool(args.no_skip_existing))
+    seed_sweep_main(argv)
+
+
 def _load_support_check(dataset_dir: Path) -> dict[str, object]:
     dataset_summary_path = dataset_dir / "dataset_summary.json"
     if not dataset_summary_path.exists():
@@ -622,15 +696,15 @@ def build_parser() -> argparse.ArgumentParser:
     pipeline_parser.add_argument("--profile", action="store_true", help="Print a cumulative cProfile report for collection execution.")
     pipeline_parser.add_argument("--report-size-matched", action="store_true", help="Mark the run for downstream size-matched reporting.")
     pipeline_parser.add_argument("--checkpoint-dir", default=None, help="Optional explicit checkpoint directory.")
-    pipeline_parser.add_argument("--alpha-conditioning-mode", choices=["dataset", "uniform"], default="dataset", help="Alpha conditioning mode.")
+    pipeline_parser.add_argument("--alpha-conditioning-mode", choices=["dataset", "uniform"], default="uniform", help="Alpha conditioning mode.")
     pipeline_parser.add_argument("--epochs", type=int, default=50, help="Training epochs.")
     pipeline_parser.add_argument("--batch-size", type=int, default=256, help="Training batch size.")
     pipeline_parser.add_argument("--steps-per-epoch", type=int, default=None, help="Optional training steps per epoch.")
     pipeline_parser.add_argument("--hidden-dim", type=int, default=256, help="Hidden layer width.")
-    pipeline_parser.add_argument("--lr", type=float, default=3e-4, help="Learning rate.")
+    pipeline_parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate.")
     pipeline_parser.add_argument("--gamma", type=float, default=0.99, help="Discount factor.")
-    pipeline_parser.add_argument("--expectile", type=float, default=0.7, help="IQL expectile.")
-    pipeline_parser.add_argument("--beta", type=float, default=3.0, help="IQL actor temperature.")
+    pipeline_parser.add_argument("--expectile", type=float, default=0.9, help="IQL expectile.")
+    pipeline_parser.add_argument("--beta", type=float, default=2.0, help="IQL actor temperature.")
     pipeline_parser.add_argument("--max-joint-velocity", type=float, default=1.3, help="Policy action cap from joint velocity.")
     pipeline_parser.add_argument("--device", default=None, help="Torch device.")
     pipeline_parser.add_argument("--split", choices=["train", "val", "test"], default="test", help="Dataset split to evaluate.")
@@ -646,15 +720,15 @@ def build_parser() -> argparse.ArgumentParser:
     train_parser.add_argument("--root", default=str(DEFAULT_RUNS_ROOT), help="Run root directory.")
     train_parser.add_argument("--dataset-dir", default=None, help="Optional explicit dataset directory.")
     train_parser.add_argument("--output-dir", default=None, help="Optional explicit checkpoint directory.")
-    train_parser.add_argument("--alpha-conditioning-mode", choices=["dataset", "uniform"], default="dataset", help="Alpha conditioning mode.")
+    train_parser.add_argument("--alpha-conditioning-mode", choices=["dataset", "uniform"], default="uniform", help="Alpha conditioning mode.")
     train_parser.add_argument("--epochs", type=int, default=50, help="Training epochs.")
     train_parser.add_argument("--batch-size", type=int, default=256, help="Training batch size.")
     train_parser.add_argument("--steps-per-epoch", type=int, default=None, help="Optional training steps per epoch.")
     train_parser.add_argument("--hidden-dim", type=int, default=256, help="Hidden layer width.")
-    train_parser.add_argument("--lr", type=float, default=3e-4, help="Learning rate.")
+    train_parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate.")
     train_parser.add_argument("--gamma", type=float, default=0.99, help="Discount factor.")
-    train_parser.add_argument("--expectile", type=float, default=0.7, help="IQL expectile.")
-    train_parser.add_argument("--beta", type=float, default=3.0, help="IQL actor temperature.")
+    train_parser.add_argument("--expectile", type=float, default=0.9, help="IQL expectile.")
+    train_parser.add_argument("--beta", type=float, default=2.0, help="IQL actor temperature.")
     train_parser.add_argument("--rho", type=float, default=0.01, help="Weighted-max tie-break parameter.")
     train_parser.add_argument("--max-joint-velocity", type=float, default=1.3, help="Policy action cap from joint velocity.")
     train_parser.add_argument("--device", default="cpu", help="Torch device.")
@@ -676,6 +750,37 @@ def build_parser() -> argparse.ArgumentParser:
     eval_parser.add_argument("--max-steps", type=int, default=None, help="Optional evaluation horizon override.")
     eval_parser.add_argument("--output-dir", default=None, help="Optional explicit evaluation output directory.")
     eval_parser.set_defaults(func=run_eval)
+
+    seed_sweep_parser = subparsers.add_parser("seed-sweep", help="Run train/eval-only reseeding on a fixed dataset.")
+    seed_sweep_parser.add_argument("--run", default=None, help="Optional run name for flattened layout defaults.")
+    seed_sweep_parser.add_argument("--mode", choices=["sum", "max"], required=True, help="Training/evaluation mode.")
+    seed_sweep_parser.add_argument("--root", default=str(DEFAULT_RUNS_ROOT), help="Run root directory.")
+    seed_sweep_parser.add_argument("--dataset-dir", default=None, help="Optional explicit dataset directory.")
+    seed_sweep_parser.add_argument("--checkpoint-root", default=None, help="Optional checkpoint root override.")
+    seed_sweep_parser.add_argument("--evaluation-root", default=None, help="Optional evaluation root override.")
+    seed_sweep_parser.add_argument("--seeds", type=str, default=None, help="Optional comma-separated seed values.")
+    seed_sweep_parser.add_argument("--seed-count", type=int, default=5, help="Number of seeds when --seeds is omitted.")
+    seed_sweep_parser.add_argument("--seed-start", type=int, default=0, help="Starting seed when --seeds is omitted.")
+    seed_sweep_parser.add_argument("--alpha-conditioning-mode", choices=["dataset", "uniform"], default="uniform", help="Alpha conditioning mode.")
+    seed_sweep_parser.add_argument("--epochs", type=int, default=50, help="Training epochs.")
+    seed_sweep_parser.add_argument("--batch-size", type=int, default=256, help="Training batch size.")
+    seed_sweep_parser.add_argument("--steps-per-epoch", type=int, default=None, help="Optional training steps per epoch.")
+    seed_sweep_parser.add_argument("--hidden-dim", type=int, default=256, help="Hidden layer width.")
+    seed_sweep_parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate.")
+    seed_sweep_parser.add_argument("--gamma", type=float, default=0.99, help="Discount factor.")
+    seed_sweep_parser.add_argument("--expectile", type=float, default=0.9, help="IQL expectile.")
+    seed_sweep_parser.add_argument("--beta", type=float, default=2.0, help="IQL actor temperature.")
+    seed_sweep_parser.add_argument("--rho", type=float, default=0.01, help="Weighted-max tie-break parameter.")
+    seed_sweep_parser.add_argument("--max-joint-velocity", type=float, default=1.3, help="Policy action cap from joint velocity.")
+    seed_sweep_parser.add_argument("--device", default="cpu", help="Torch device.")
+    seed_sweep_parser.add_argument("--split", choices=["train", "val", "test"], default="test", help="Dataset split to evaluate.")
+    seed_sweep_parser.add_argument("--alpha-grid", type=str, default="0.0,0.25,0.5,0.75,1.0", help="Comma-separated alpha values.")
+    seed_sweep_parser.add_argument("--max-steps", type=int, default=None, help="Optional evaluation horizon override.")
+    seed_sweep_parser.add_argument("--stochastic", action="store_true", help="Disable deterministic evaluation actions.")
+    seed_sweep_parser.add_argument("--no-skip-existing", action="store_true", help="Force rerun even when seed artifacts already exist.")
+    seed_sweep_parser.add_argument("--summary-json", default=None, help="Optional seed sweep summary JSON output path.")
+    seed_sweep_parser.add_argument("--summary-csv", default=None, help="Optional seed sweep CSV output path.")
+    seed_sweep_parser.set_defaults(func=run_seed_sweep)
 
     compare_parser = subparsers.add_parser("compare", help="Compare sum and max planner datasets.")
     compare_parser.add_argument("--run", default=None, help="Run name. When provided, sum/max dataset paths are inferred.")

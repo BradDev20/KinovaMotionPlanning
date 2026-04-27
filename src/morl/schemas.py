@@ -41,7 +41,7 @@ class TaskSpec:
     difficulty: str = "medium"
     benchmark_profile: str = "baseline"
     geometry_regime: str = "mixed"
-    horizon: int = 25
+    horizon: int = 50
     dt: float = 0.1
 
     @classmethod
@@ -56,7 +56,7 @@ class TaskSpec:
             difficulty=str(payload.get("difficulty", "medium")),
             benchmark_profile=str(payload.get("benchmark_profile", "baseline")),
             geometry_regime=str(payload.get("geometry_regime", "mixed")),
-            horizon=int(payload.get("horizon", 25)),
+            horizon=int(payload.get("horizon", 50)),
             dt=float(payload.get("dt", 0.1)),
         )
 

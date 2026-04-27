@@ -62,7 +62,7 @@ TASK_FAMILY_NAMES = {
 class TaskFamilyConfig:
     start_noise_scale: tuple[float, ...] = (0.12, 0.12, 0.12, 0.18, 0.12, 0.18, 0.12)
     target_noise_scale: tuple[float, float, float] = (0.03, 0.05, 0.03)
-    horizon: int = 25
+    horizon: int = 50
     dt: float = 0.1
     task_family: str = "mixed"
     difficulty: str = "medium"

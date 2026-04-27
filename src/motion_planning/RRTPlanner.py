@@ -1,6 +1,6 @@
 import numpy as np
 import mujoco
-from typing import List, Tuple, Callable
+from typing import Callable, List, Optional, Tuple
 
 class RRTPlanner:
     """Rapidly-exploring Random Tree (RRT) planner for joint space planning"""
@@ -41,9 +41,10 @@ class RRTPlanner:
         """Set collision checking function"""
         self.collision_checker = collision_fn
 
-    def _sample_random_configuration(self) -> np.ndarray:
+    def _sample_random_configuration(self, *, rng: Optional[np.random.Generator] = None) -> np.ndarray:
         """Sample a random valid joint configuration"""
-        return np.random.uniform(
+        sampler = rng if rng is not None else np.random
+        return sampler.uniform(
             self.joint_limits_lower,
             self.joint_limits_upper
         )
@@ -70,13 +71,28 @@ class RRTPlanner:
             return True
         return not self.collision_checker(config)
 
+    def _edge_probe_count(self, config1: np.ndarray, config2: np.ndarray) -> int:
+        distance = float(np.linalg.norm(config2 - config1))
+        probe_step = max(float(self.step_size) * 0.5, 1e-3)
+        return max(2, int(np.ceil(distance / probe_step)) + 1)
+
+    def _is_edge_collision_free(self, config1: np.ndarray, config2: np.ndarray) -> bool:
+        num_points = self._edge_probe_count(config1, config2)
+        return all(self._is_collision_free(config) for config in self._interpolate_path(config1, config2, num_points=num_points))
+
     def _interpolate_path(self, config1: np.ndarray, config2: np.ndarray,
                           num_points: int = 10) -> List[np.ndarray]:
         """Interpolate between two configurations"""
         return [config1 + t * (config2 - config1)
                 for t in np.linspace(0, 1, num_points)]
 
-    def plan(self, start_config: np.ndarray, goal_config: np.ndarray) -> Tuple[List[np.ndarray], bool]:
+    def plan(
+        self,
+        start_config: np.ndarray,
+        goal_config: np.ndarray,
+        *,
+        rng: Optional[np.random.Generator] = None,
+    ) -> Tuple[List[np.ndarray], bool]:
         """
         Plan a path from start to goal configuration
 
@@ -88,15 +104,19 @@ class RRTPlanner:
             path: List of joint configurations from start to goal
             success: Whether planning succeeded
         """
+        if not self._is_collision_free(start_config) or not self._is_collision_free(goal_config):
+            return [], False
+
         # Initialize tree with start configuration
         self.tree = [(start_config.copy(), -1)]
+        sampler = rng if rng is not None else np.random
 
         for iteration in range(self.max_iterations):
             # Sample random configuration (with bias towards goal)
-            if np.random.random() < 0.1:  # 10% bias towards goal
+            if sampler.random() < 0.1:  # 10% bias towards goal
                 random_config = goal_config
             else:
-                random_config = self._sample_random_configuration()
+                random_config = self._sample_random_configuration(rng=sampler)
 
             # Find nearest node in tree
             nearest_idx = self._find_nearest_node(random_config)
@@ -105,8 +125,8 @@ class RRTPlanner:
             # Extend towards random configuration
             new_config = self._extend_towards(nearest_config, random_config)
 
-            # Check if new configuration is valid and collision-free
-            if self._is_collision_free(new_config):
+            # Require a collision-free edge from nearest to new node.
+            if self._is_edge_collision_free(nearest_config, new_config):
                 # Add to tree
                 self.tree.append((new_config, nearest_idx))
 
@@ -114,7 +134,7 @@ class RRTPlanner:
                 distance_to_goal = np.linalg.norm(new_config - goal_config)
                 if distance_to_goal < self.goal_threshold:
                     # Try to connect directly to goal
-                    if self._is_collision_free(goal_config):
+                    if self._is_edge_collision_free(new_config, goal_config):
                         self.tree.append((goal_config, len(self.tree) - 1))
 
                         # Extract path
@@ -136,17 +156,28 @@ class RRTPlanner:
         path.reverse()
         return path
 
-    def smooth_path(self, path: List[np.ndarray], max_iterations: int = 100) -> List[np.ndarray]:
+    def smooth_path(
+        self,
+        path: List[np.ndarray],
+        max_iterations: int = 100,
+        *,
+        rng: Optional[np.random.Generator] = None,
+    ) -> List[np.ndarray]:
         """Smooth path using shortcut smoothing"""
         if len(path) <= 2:
             return path
 
         smoothed_path = [config.copy() for config in path]
+        sampler = rng if rng is not None else np.random
 
         for _ in range(max_iterations):
             # Select two random points on path
-            i = np.random.randint(0, len(smoothed_path))
-            j = np.random.randint(0, len(smoothed_path))
+            if rng is not None:
+                i = int(sampler.integers(0, len(smoothed_path)))
+                j = int(sampler.integers(0, len(smoothed_path)))
+            else:
+                i = int(np.random.randint(0, len(smoothed_path)))
+                j = int(np.random.randint(0, len(smoothed_path)))
 
             if abs(i - j) <= 1:
                 continue
@@ -157,7 +188,7 @@ class RRTPlanner:
             # Check if direct connection is collision-free
             interpolated = self._interpolate_path(smoothed_path[i], smoothed_path[j])
 
-            if all(self._is_collision_free(config) for config in interpolated):
+            if self._is_edge_collision_free(smoothed_path[i], smoothed_path[j]):
                 # Replace path segment with direct connection
                 smoothed_path = (smoothed_path[:i + 1] +
                                  interpolated[1:-1] +

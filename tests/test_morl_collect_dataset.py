@@ -8,6 +8,7 @@ import numpy as np
 
 from src.morl.collect_dataset import (
     CollectionTaskDispatch,
+    TASK_PROBE_RESTART_COUNT,
     _collect_task_results_parallel,
     _collect_task_sequential,
     _repair_usage_summary,
@@ -227,10 +228,12 @@ class CollectDatasetProbeTests(unittest.TestCase):
                         scene_dir=Path("test_artifacts") / "probe_tmp",
                         planner_config=planner_config,
                     )
-
+        probe_restarts = min(dispatch.restart_count, TASK_PROBE_RESTART_COUNT)
+        expected_probe_count = len(dispatch.alpha_values) * probe_restarts
+        expected_skipped_count = len(dispatch.alpha_values) * dispatch.restart_count - expected_probe_count
         self.assertEqual(run_batch.call_count, 1)
         self.assertEqual(sum(1 for result in results if result.record is not None), 0)
-        self.assertEqual(sum(1 for result in results if bool((result.failure or {}).get("probe_skipped"))), 6)
+        self.assertEqual(sum(1 for result in results if bool((result.failure or {}).get("probe_skipped"))), expected_skipped_count)
         self.assertEqual(len(results), 12)
 
     def test_sequential_collection_continues_after_probe_success(self):
@@ -260,8 +263,10 @@ class CollectDatasetProbeTests(unittest.TestCase):
                         scene_dir=Path("test_artifacts") / "probe_tmp",
                         planner_config=planner_config,
                     )
-
-        self.assertEqual(run_batch.call_count, 2)
+        probe_restarts = min(dispatch.restart_count, TASK_PROBE_RESTART_COUNT)
+        expected_probe_count = len(dispatch.alpha_values) * probe_restarts
+        expected_run_batch_calls = 2 if expected_probe_count < len(dispatch.alpha_values) * dispatch.restart_count else 1
+        self.assertEqual(run_batch.call_count, expected_run_batch_calls)
         self.assertEqual(sum(1 for result in results if result.record is not None), 1)
         self.assertEqual(sum(1 for result in results if bool((result.failure or {}).get("probe_skipped"))), 0)
         self.assertEqual(len(results), 12)
@@ -399,6 +404,49 @@ class CollectDatasetProbeTests(unittest.TestCase):
         self.assertEqual(summary["repair_raw_dynamics_acceleration_violation_total"], 0)
         self.assertEqual(summary["repair_raw_dynamics_max_velocity_excess"], 0.0)
         self.assertEqual(summary["repair_raw_dynamics_max_acceleration_excess"], 0.0)
+        self.assertEqual(summary["optimizer_duration_mean_sec"], 0.0)
+        self.assertEqual(summary["optimizer_duration_p90_sec"], 0.0)
+        self.assertEqual(summary["rescue_attempted_trajectory_count"], 0)
+        self.assertEqual(summary["rescue_success_trajectory_count"], 0)
+        self.assertEqual(summary["warm_start_rrt_attempted_trajectory_count"], 0)
+        self.assertEqual(summary["warm_start_rrt_replaced_trajectory_count"], 0)
+
+    def test_repair_usage_summary_tracks_optimizer_duration_and_strategy_counts(self):
+        records = [
+            {
+                "optimization": {
+                    "duration_sec": 1.0,
+                    "repair_used": False,
+                    "rescue_attempted": True,
+                    "rescue_success": True,
+                    "surrogate_initial_trajectory_dynamics": {
+                        "warm_start_rrt_attempted": True,
+                        "warm_start_strategy": "rrt",
+                    },
+                }
+            },
+            {
+                "optimization": {
+                    "duration_sec": 2.0,
+                    "repair_used": False,
+                    "rescue_attempted": True,
+                    "rescue_success": False,
+                    "surrogate_initial_trajectory_dynamics": {
+                        "warm_start_rrt_attempted": True,
+                        "warm_start_strategy": "linear",
+                    },
+                }
+            },
+            {"optimization": {"duration_sec": 4.0, "repair_used": False}},
+        ]
+
+        summary = _repair_usage_summary(records)
+        self.assertAlmostEqual(summary["optimizer_duration_mean_sec"], 7.0 / 3.0)
+        self.assertAlmostEqual(summary["optimizer_duration_p90_sec"], 4.0)
+        self.assertEqual(summary["rescue_attempted_trajectory_count"], 2)
+        self.assertEqual(summary["rescue_success_trajectory_count"], 1)
+        self.assertEqual(summary["warm_start_rrt_attempted_trajectory_count"], 2)
+        self.assertEqual(summary["warm_start_rrt_replaced_trajectory_count"], 1)
 
     def test_surrogate_dynamics_summary_aggregates_acceleration_shape(self):
         records = [
@@ -857,7 +905,6 @@ class CollectDatasetProbeTests(unittest.TestCase):
                         )
         repair_mock.assert_called_once()
         self.assertTrue(record["optimization"]["repair_used"])
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+import math
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -13,10 +14,33 @@ class RepairUsageAccumulator:
     raw_dynamics_acceleration_violation_total: int = 0
     raw_dynamics_max_velocity_excess: float = 0.0
     raw_dynamics_max_acceleration_excess: float = 0.0
+    optimizer_duration_total: float = 0.0
+    optimizer_duration_values: list[float] = field(default_factory=list)
+    rescue_attempted_trajectory_count: int = 0
+    rescue_success_trajectory_count: int = 0
+    warm_start_rrt_attempted_trajectory_count: int = 0
+    warm_start_rrt_replaced_trajectory_count: int = 0
 
     def ingest(self, record: dict[str, object], repair_reason_counts: dict[str, int]) -> None:
         optimization = record.get("optimization", {})
-        if not (isinstance(optimization, dict) and bool(optimization.get("repair_used"))):
+        if not isinstance(optimization, dict):
+            return
+        duration_raw = optimization.get("duration_sec")
+        if duration_raw is not None:
+            duration_value = float(duration_raw or 0.0)
+            self.optimizer_duration_total += duration_value
+            self.optimizer_duration_values.append(duration_value)
+        if bool(optimization.get("rescue_attempted")):
+            self.rescue_attempted_trajectory_count += 1
+        if bool(optimization.get("rescue_success")):
+            self.rescue_success_trajectory_count += 1
+        warm_start = optimization.get("surrogate_initial_trajectory_dynamics")
+        if isinstance(warm_start, dict):
+            if bool(warm_start.get("warm_start_rrt_attempted")):
+                self.warm_start_rrt_attempted_trajectory_count += 1
+            if str(warm_start.get("warm_start_strategy", "")) == "rrt":
+                self.warm_start_rrt_replaced_trajectory_count += 1
+        if not bool(optimization.get("repair_used")):
             return
         self.repair_used_trajectory_count += 1
         repair = optimization.get("repair", {})
@@ -55,10 +79,28 @@ class RepairUsageAccumulator:
         repair_rate = (
             float(self.repair_used_trajectory_count) / float(raw_trajectory_count) if raw_trajectory_count > 0 else 0.0
         )
+        optimizer_duration_count = len(self.optimizer_duration_values)
+        optimizer_duration_mean = (
+            float(self.optimizer_duration_total) / float(optimizer_duration_count)
+            if optimizer_duration_count > 0
+            else 0.0
+        )
+        if optimizer_duration_count > 0:
+            sorted_durations = sorted(self.optimizer_duration_values)
+            percentile_index = max(0, math.ceil(0.90 * float(optimizer_duration_count)) - 1)
+            optimizer_duration_p90 = float(sorted_durations[min(percentile_index, optimizer_duration_count - 1)])
+        else:
+            optimizer_duration_p90 = 0.0
         return {
             "repair_used_trajectory_count": self.repair_used_trajectory_count,
             "repair_free_trajectory_count": repair_free_trajectory_count,
             "repair_rate": repair_rate,
+            "optimizer_duration_mean_sec": optimizer_duration_mean,
+            "optimizer_duration_p90_sec": optimizer_duration_p90,
+            "rescue_attempted_trajectory_count": self.rescue_attempted_trajectory_count,
+            "rescue_success_trajectory_count": self.rescue_success_trajectory_count,
+            "warm_start_rrt_attempted_trajectory_count": self.warm_start_rrt_attempted_trajectory_count,
+            "warm_start_rrt_replaced_trajectory_count": self.warm_start_rrt_replaced_trajectory_count,
             "repair_invocation_count_by_validation_failure_reason": repair_reason_counts,
             "repair_slsqp_iteration_total": self.slsqp_iteration_total,
             "repair_slsqp_function_evaluation_total": self.slsqp_function_evaluation_total,
