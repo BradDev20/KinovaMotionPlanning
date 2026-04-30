@@ -223,4 +223,5 @@ data/morl/_visualization/
 robot_models/kinova_gen3/morl_task_*.xml
 robot_models/kinova_gen3/_morl_generated/
 /data/*
+/seed_bank/*
 src/pareto_data_and_results/
