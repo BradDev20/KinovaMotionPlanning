@@ -60,6 +60,11 @@ TASK_FAMILY_NAMES = {
 
 @dataclass(frozen=True)
 class TaskFamilyConfig:
+    """
+    Configuration for a group of related tasks.
+    Controls how much noise we add to the robot's start position 
+    and where the target can be.
+    """
     start_noise_scale: tuple[float, ...] = (0.12, 0.12, 0.12, 0.18, 0.12, 0.18, 0.12)
     target_noise_scale: tuple[float, float, float] = (0.03, 0.05, 0.03)
     horizon: int = 50
@@ -72,6 +77,7 @@ class TaskFamilyConfig:
 
 
 def normalize_family_name(family_name: str) -> str:
+    """Makes sure the task family name is one we recognize."""
     normalized = str(family_name).strip().lower()
     if normalized not in TASK_FAMILY_NAMES:
         raise ValueError(f"Unsupported task family: {family_name}")
@@ -79,6 +85,10 @@ def normalize_family_name(family_name: str) -> str:
 
 
 def parse_family_mix(spec: str | None) -> tuple[tuple[str, float], ...] | None:
+    """
+    Turns a string like 'corridor=0.5,pinch=0.5' into a list of weights.
+    We use these weights to sample from different types of obstacles.
+    """
     if not spec:
         return None
     weights = []
@@ -92,6 +102,10 @@ def parse_family_mix(spec: str | None) -> tuple[tuple[str, float], ...] | None:
 
 
 def default_family_mix(benchmark_profile: str, geometry_regime: str) -> tuple[tuple[str, float], ...]:
+    """
+    Quick helper to get the recommended mixture of task families 
+    based on the profile (baseline/max) and geometry (convex/nonconvex).
+    """
     profile = str(benchmark_profile).strip().lower()
     regime = str(geometry_regime).strip().lower()
 
@@ -140,10 +154,15 @@ def default_family_mix(benchmark_profile: str, geometry_regime: str) -> tuple[tu
 
 
 def regime_families(benchmark_profile: str, geometry_regime: str) -> tuple[str, ...]:
+    """Just lists the families in the current regime."""
     return tuple(name for name, _ in default_family_mix(benchmark_profile, geometry_regime))
 
 
 def generate_alpha_values(alpha_count: int, schedule: str = "linear") -> list[float]:
+    """
+    Generates a list of preferences (alphas) from 0 to 1.
+    You can have them spread out linearly, or bunched up in the middle or ends.
+    """
     count = max(2, int(alpha_count))
     if schedule == "linear":
         values = np.linspace(0.0, 1.0, count)

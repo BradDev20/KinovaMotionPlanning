@@ -100,6 +100,7 @@ def _selected_records_for_task(all_records: list[dict], task_id: str, alpha: flo
 def _replay_selected_task(task_id: str, selected: list[dict], scene_dir: Path, has_more_tasks: bool) -> bool:
     import glfw
     import mujoco
+    import mujoco.viewer
 
     from src.motion_planning.kinematics import KinematicsSolver
     from src.analysis.trajectory_visualizer import TrajectoryVisualizationManager

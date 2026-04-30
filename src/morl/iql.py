@@ -54,6 +54,10 @@ if nn is None:
 else:
 
     class MLP(nn.Module):
+        """
+        A simple Multi-Layer Perceptron. 
+        It's basically a stack of linear layers with ReLU activation.
+        """
         def __init__(self, input_dim: int, hidden_dim: int, output_dim: int, depth: int = 3):
             super().__init__()
             layers = []
@@ -70,6 +74,10 @@ else:
 
 
     class VectorQNetwork(nn.Module):
+        """
+        Predicts the 'value' of an action in a certain state.
+        Output is a vector of 2 costs (length and obstacles).
+        """
         def __init__(self, obs_dim: int, action_dim: int, hidden_dim: int):
             super().__init__()
             self.model = MLP(obs_dim + action_dim, hidden_dim, 2)
@@ -79,6 +87,10 @@ else:
 
 
     class VectorValueNetwork(nn.Module):
+        """
+        Predicts the expected cost of a state. 
+        Like the Q-network but doesn't care about the specific action.
+        """
         def __init__(self, obs_dim: int, hidden_dim: int):
             super().__init__()
             self.model = MLP(obs_dim, hidden_dim, 2)
@@ -88,6 +100,10 @@ else:
 
 
     class GaussianPolicy(nn.Module):
+        """
+        The part that actually picks actions. 
+        It outputs a normal distribution so we can sample from it.
+        """
         def __init__(self, obs_dim: int, action_dim: int, hidden_dim: int):
             super().__init__()
             self.backbone = MLP(obs_dim + 2, hidden_dim, hidden_dim)
@@ -95,6 +111,7 @@ else:
             self.log_std = nn.Parameter(torch.full((action_dim,), -1.5))
 
         def distribution(self, observation, weights):
+            """Returns the probability distribution for actions."""
             features = self.backbone(torch.cat([observation, weights], dim=-1))
             mean = self.mean_head(features)
             std = self.log_std.clamp(-5.0, 2.0).exp().expand_as(mean)
@@ -106,6 +123,10 @@ else:
 
 @dataclass(frozen=True)
 class IQLConfig:
+    """
+    Hyperparameters for the Implicit Q-Learning (IQL) agent.
+    Controls learning rates, discounting, and conditioning.
+    """
     hidden_dim: int = 256
     lr: float = 3e-4
     gamma: float = 0.99
@@ -118,6 +139,11 @@ class IQLConfig:
 
 
 class PreferenceConditionedIQL:
+    """
+    The main IQL agent. 
+    It's 'preference-conditioned' because it takes the alpha weight 
+    as an input to decide how to balance different costs.
+    """
     def __init__(
         self,
         obs_dim: int,
@@ -133,6 +159,7 @@ class PreferenceConditionedIQL:
         self.obs_dim = int(obs_dim)
         self.action_dim = int(action_dim)
 
+        # Build all the networks
         self.q1 = VectorQNetwork(obs_dim, action_dim, config.hidden_dim).to(self.device)
         self.q2 = VectorQNetwork(obs_dim, action_dim, config.hidden_dim).to(self.device)
         self.value = VectorValueNetwork(obs_dim, config.hidden_dim).to(self.device)

@@ -78,15 +78,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--coverage-only", action="store_true", help="Plot Pareto-front points only instead of all trajectories.")
     parser.add_argument("--color-by-alpha", action="store_true", help="Color planner points by alpha instead of series color.")
     parser.add_argument("--nonconvex-only", action="store_true", help="Plot only non-convex families.")
+    parser.add_argument("--successes-only", action="store_true", help="Filter evaluation rollouts to successful trajectories only.")
     return parser.parse_args()
 
 
-def evaluation_records(evaluation_dir: str | Path) -> list[dict]:
+def evaluation_records(evaluation_dir: str | Path, successes_only: bool = False) -> list[dict]:
     csv_path = Path(evaluation_dir) / "metrics.csv"
     points = []
     with csv_path.open("r", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
         for row in reader:
+            if successes_only and row.get("success", "False") != "True":
+                continue
             points.append(
                 {
                     "length_cost": float(row["length_objective"]),
@@ -206,7 +209,9 @@ def _plot_series(axis, records: list[dict], label: str, source_type: str, index:
         axis.scatter([], [], s=POINT_SIZE, c=color, marker=marker, edgecolors="black", linewidths=SCATTER_EDGE_WIDTH, label=legend_label)
         return summary
 
-    if source_type == "planner" and color_by_alpha and not coverage_only:
+    eval_cmaps = {"iql eval: weighted max": "Reds", "iql eval: weighted sum": "Greens"}
+    cmap = eval_cmaps.get(label.lower(), "viridis")
+    if color_by_alpha and not coverage_only:
         alphas = np.asarray([float(record["alpha"]) for record in records], dtype=np.float64)
         axis.scatter(
             points[:, 0],
@@ -214,7 +219,7 @@ def _plot_series(axis, records: list[dict], label: str, source_type: str, index:
             s=POINT_SIZE,
             alpha=1.0,
             c=alphas,
-            cmap="viridis",
+            cmap=cmap,
             marker=marker,
             edgecolors=color,
             linewidths=SCATTER_EDGE_WIDTH,
@@ -312,7 +317,7 @@ def main(argv: list[str] | None = None) -> None:
     evaluation_series = []
     if args.source in {"both", "offline_rl"}:
         for evaluation_dir in args.evaluation_dirs:
-            records = evaluation_records(evaluation_dir)
+            records = evaluation_records(evaluation_dir, successes_only=args.successes_only)
             evaluation_series.append(("offline_rl", series_label(evaluation_dir, "offline_rl"), records))
 
     series = planner_series + evaluation_series

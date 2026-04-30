@@ -100,6 +100,8 @@ def _build_collect_backend_argv(args: argparse.Namespace) -> list[str]:
     _append_option(argv, "--objective-tol", args.objective_tol)
     _append_option(argv, "--path-tol", args.path_tol)
     _append_option(argv, "--route-tol", args.route_tol)
+    _append_option(argv, "--seed-bank-dir", getattr(args, "seed_bank_dir", None))
+    _append_option(argv, "--target-tasks", getattr(args, "target_tasks", None))
     _append_flag(argv, "--quiet", bool(getattr(args, "quiet", False)))
     _append_flag(argv, "--profile", bool(getattr(args, "profile", False)))
     _append_flag(argv, "--report-size-matched", args.report_size_matched)
@@ -644,7 +646,7 @@ def build_parser() -> argparse.ArgumentParser:
     collect_parser.add_argument("--cost-sample-rate", type=int, default=2, help="Planner cost sampling stride.")
     collect_parser.add_argument("--planner-max-iter", type=int, default=None, help="Optional planner iteration cap.")
     collect_parser.add_argument("--planner-max-fun", type=int, default=None, help="Optional planner function-eval cap.")
-    collect_parser.add_argument("--planner-steps", type=int, default=250, help="Torch optimizer steps per batch.")
+    collect_parser.add_argument("--planner-steps", type=int, default=500, help="Torch optimizer steps per batch.")
     collect_parser.add_argument("--repair-max-iter", type=int, default=None, help="Optional CPU repair iteration cap.")
     collect_parser.add_argument("--repair-max-fun", type=int, default=None, help="Optional CPU repair function-eval cap.")
     collect_parser.add_argument("--device", default=None, help="Collection planner device.")
@@ -658,6 +660,23 @@ def build_parser() -> argparse.ArgumentParser:
     collect_parser.add_argument("--route-tol", type=float, default=None, help="Optional route clustering tolerance.")
     collect_parser.add_argument("--profile", action="store_true", help="Print a cumulative cProfile report for collection execution.")
     collect_parser.add_argument("--report-size-matched", action="store_true", help="Mark the run for downstream size-matched reporting.")
+    collect_parser.add_argument(
+        "--seed-bank-dir",
+        type=Path,
+        default=Path("seed_bank"),
+        help="Global seed bank directory shared across experiments. "
+             "Defaults to a 'seed_bank' directory in the project root.",
+    )
+    collect_parser.add_argument(
+        "--target-tasks",
+        type=str,
+        default=None,
+        help=(
+            "Optional comma-separated 1-indexed task IDs to include from the early range. "
+            "Tasks before max(target_tasks) not in this list are skipped; "
+            "all tasks from max(target_tasks)+1 up to --task-count are always included."
+        ),
+    )
     collect_parser.set_defaults(func=run_collect)
 
     pipeline_parser = subparsers.add_parser("pipeline", help="Collect, train, and evaluate in one support-aware workflow.")
@@ -694,6 +713,23 @@ def build_parser() -> argparse.ArgumentParser:
     pipeline_parser.add_argument("--path-tol", type=float, default=5e-2, help="Path tolerance for deduplication.")
     pipeline_parser.add_argument("--route-tol", type=float, default=None, help="Optional route clustering tolerance.")
     pipeline_parser.add_argument("--profile", action="store_true", help="Print a cumulative cProfile report for collection execution.")
+    pipeline_parser.add_argument(
+        "--seed-bank-dir",
+        type=Path,
+        default=Path("seed_bank"),
+        help="Global seed bank directory shared across experiments. "
+             "Defaults to a 'seed_bank' directory in the project root.",
+    )
+    pipeline_parser.add_argument(
+        "--target-tasks",
+        type=str,
+        default=None,
+        help=(
+            "Optional comma-separated 1-indexed task IDs to include from the early range. "
+            "Tasks before max(target_tasks) not in this list are skipped; "
+            "all tasks from max(target_tasks)+1 up to --task-count are always included."
+        ),
+    )
     pipeline_parser.add_argument("--report-size-matched", action="store_true", help="Mark the run for downstream size-matched reporting.")
     pipeline_parser.add_argument("--checkpoint-dir", default=None, help="Optional explicit checkpoint directory.")
     pipeline_parser.add_argument("--alpha-conditioning-mode", choices=["dataset", "uniform"], default="uniform", help="Alpha conditioning mode.")
@@ -703,8 +739,8 @@ def build_parser() -> argparse.ArgumentParser:
     pipeline_parser.add_argument("--hidden-dim", type=int, default=256, help="Hidden layer width.")
     pipeline_parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate.")
     pipeline_parser.add_argument("--gamma", type=float, default=0.99, help="Discount factor.")
-    pipeline_parser.add_argument("--expectile", type=float, default=0.9, help="IQL expectile.")
-    pipeline_parser.add_argument("--beta", type=float, default=2.0, help="IQL actor temperature.")
+    pipeline_parser.add_argument("--expectile", type=float, default=0.7, help="IQL expectile.")
+    pipeline_parser.add_argument("--beta", type=float, default=3.0, help="IQL actor temperature.")
     pipeline_parser.add_argument("--max-joint-velocity", type=float, default=1.3, help="Policy action cap from joint velocity.")
     pipeline_parser.add_argument("--device", default=None, help="Torch device.")
     pipeline_parser.add_argument("--split", choices=["train", "val", "test"], default="test", help="Dataset split to evaluate.")
@@ -727,8 +763,8 @@ def build_parser() -> argparse.ArgumentParser:
     train_parser.add_argument("--hidden-dim", type=int, default=256, help="Hidden layer width.")
     train_parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate.")
     train_parser.add_argument("--gamma", type=float, default=0.99, help="Discount factor.")
-    train_parser.add_argument("--expectile", type=float, default=0.9, help="IQL expectile.")
-    train_parser.add_argument("--beta", type=float, default=2.0, help="IQL actor temperature.")
+    train_parser.add_argument("--expectile", type=float, default=0.7, help="IQL expectile.")
+    train_parser.add_argument("--beta", type=float, default=3.0, help="IQL actor temperature.")
     train_parser.add_argument("--rho", type=float, default=0.01, help="Weighted-max tie-break parameter.")
     train_parser.add_argument("--max-joint-velocity", type=float, default=1.3, help="Policy action cap from joint velocity.")
     train_parser.add_argument("--device", default="cpu", help="Torch device.")
@@ -768,8 +804,8 @@ def build_parser() -> argparse.ArgumentParser:
     seed_sweep_parser.add_argument("--hidden-dim", type=int, default=256, help="Hidden layer width.")
     seed_sweep_parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate.")
     seed_sweep_parser.add_argument("--gamma", type=float, default=0.99, help="Discount factor.")
-    seed_sweep_parser.add_argument("--expectile", type=float, default=0.9, help="IQL expectile.")
-    seed_sweep_parser.add_argument("--beta", type=float, default=2.0, help="IQL actor temperature.")
+    seed_sweep_parser.add_argument("--expectile", type=float, default=0.7, help="IQL expectile.")
+    seed_sweep_parser.add_argument("--beta", type=float, default=3.0, help="IQL actor temperature.")
     seed_sweep_parser.add_argument("--rho", type=float, default=0.01, help="Weighted-max tie-break parameter.")
     seed_sweep_parser.add_argument("--max-joint-velocity", type=float, default=1.3, help="Policy action cap from joint velocity.")
     seed_sweep_parser.add_argument("--device", default="cpu", help="Torch device.")

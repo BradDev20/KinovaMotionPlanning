@@ -7,16 +7,20 @@ import io
 import numpy as np
 
 from src.morl.collect_dataset import (
-    CollectionTaskDispatch,
+    main,
+    parse_args,
+)
+from src.morl.collection.types import CollectionTaskDispatch
+from src.morl.collection.workers import (
     TASK_PROBE_RESTART_COUNT,
     _collect_task_results_parallel,
     _collect_task_sequential,
+)
+from src.morl.collection.summary import (
     _repair_usage_summary,
     _surrogate_dynamics_checkpoint_summary,
     _surrogate_initial_trajectory_dynamics_summary,
     _surrogate_trajectory_dynamics_summary,
-    main,
-    parse_args,
 )
 from src.morl.planning import PlannerConfig, finalize_planned_trajectory
 from src.motion_planning.torch_trajopt import TorchPlannerResult
@@ -96,7 +100,7 @@ class CollectDatasetInterruptTests(unittest.TestCase):
         fake_context = _FakeContext()
         planner_config = PlannerConfig(device="cpu", gpu_batch_size=2, gpu_batch_timeout_ms=10, planner_steps=2)
 
-        with mock.patch("src.morl.collect_dataset.mp.get_context", return_value=fake_context):
+        with mock.patch("src.morl.collection.workers.mp.get_context", return_value=fake_context):
             with self.assertRaises(KeyboardInterrupt):
                 _collect_task_results_parallel(
                     [object()],
@@ -106,6 +110,9 @@ class CollectDatasetInterruptTests(unittest.TestCase):
                     planner_mode="sum",
                     planner_config=planner_config,
                     num_workers=2,
+                    failure_factory=lambda *args, **kwargs: {},
+                    skipped_failure_factory=lambda *args, **kwargs: {},
+                    mute_stdio_context=mock.MagicMock(),
                 )
 
         self.assertEqual(len(fake_context.processes), 3)
@@ -214,19 +221,22 @@ class CollectDatasetProbeTests(unittest.TestCase):
         planner_config = PlannerConfig(device="cpu", gpu_batch_size=32, planner_steps=2)
         context = self._context(dispatch.task)
 
-        with mock.patch("src.morl.collect_dataset.prepare_task_planning_context", return_value=context):
+        with mock.patch("src.morl.collection.workers.prepare_task_planning_context", return_value=context):
             with mock.patch(
-                "src.morl.collect_dataset.run_torch_planner_batch",
+                "src.morl.collection.workers.run_torch_planner_batch",
                 side_effect=lambda jobs, planner_config=None: [self._planner_result(job) for job in jobs],
             ) as run_batch:
                 with mock.patch(
-                    "src.morl.collect_dataset.finalize_planned_trajectory",
+                    "src.morl.collection.workers.finalize_planned_trajectory",
                     side_effect=RuntimeError("invalid trajectory"),
                 ):
                     results = _collect_task_sequential(
                         dispatch,
                         scene_dir=Path("test_artifacts") / "probe_tmp",
                         planner_config=planner_config,
+                        failure_factory=lambda *args, **kwargs: {"probe_skipped": False},
+                        skipped_failure_factory=lambda *args, **kwargs: {"probe_skipped": True},
+                        mute_stdio_context=mock.MagicMock(),
                     )
         probe_restarts = min(dispatch.restart_count, TASK_PROBE_RESTART_COUNT)
         expected_probe_count = len(dispatch.alpha_values) * probe_restarts
@@ -249,19 +259,22 @@ class CollectDatasetProbeTests(unittest.TestCase):
                 }
             raise RuntimeError("invalid trajectory")
 
-        with mock.patch("src.morl.collect_dataset.prepare_task_planning_context", return_value=context):
+        with mock.patch("src.morl.collection.workers.prepare_task_planning_context", return_value=context):
             with mock.patch(
-                "src.morl.collect_dataset.run_torch_planner_batch",
+                "src.morl.collection.workers.run_torch_planner_batch",
                 side_effect=lambda jobs, planner_config=None: [self._planner_result(job) for job in jobs],
             ) as run_batch:
                 with mock.patch(
-                    "src.morl.collect_dataset.finalize_planned_trajectory",
+                    "src.morl.collection.workers.finalize_planned_trajectory",
                     side_effect=finalize_side_effect,
                 ):
                     results = _collect_task_sequential(
                         dispatch,
                         scene_dir=Path("test_artifacts") / "probe_tmp",
                         planner_config=planner_config,
+                        failure_factory=lambda *args, **kwargs: {"probe_skipped": False},
+                        skipped_failure_factory=lambda *args, **kwargs: {"probe_skipped": True},
+                        mute_stdio_context=mock.MagicMock(),
                     )
         probe_restarts = min(dispatch.restart_count, TASK_PROBE_RESTART_COUNT)
         expected_probe_count = len(dispatch.alpha_values) * probe_restarts

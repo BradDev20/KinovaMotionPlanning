@@ -42,10 +42,8 @@ def bspline_basis_matrices(times: np.ndarray, knots: np.ndarray, degree: int):
     Compute basis matrices B, Bdot, Bddot of shape (N, K) at given times.
     Each column j is the value of basis function N_j(t) (or its derivatives).
 
-    Implementation note:
-      For simplicity & clarity, we create one “one-hot” spline per basis function
-      and evaluate it. This is perfectly fine for K ~ 12–20 and done once
-      per collocation set. You can optimize later if needed.
+    # Create one spline per basis function for evaluation. 
+    # Works well for K ~ 12-20.
     """
     N = times.shape[0]
     K = len(knots) - degree - 1

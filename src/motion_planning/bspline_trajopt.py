@@ -218,11 +218,12 @@ class SplineBasedTrajOptPlanner(UnconstrainedTrajOptPlanner):
         
         This ensures cost functions are evaluated on the actual smooth B-spline curve,
         not just sparse control points. Critical for obstacle avoidance and Cartesian metrics.
-        
-        Note: Cost functions should use dt based on the interpolated trajectory, not control points.
-        Since we have a fixed total time T, dt_eval = T / (n_eval_points - 1)
-        
+
+        # Cost functions use dt from interpolated trajectory, not control points.
+        # dt_eval = T / (n_eval_points - 1) based on fixed time T.
+
         Args:
+
             vector: Flattened array in Fortran order (control points)
             
         Returns:

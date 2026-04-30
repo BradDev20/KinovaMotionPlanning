@@ -1,11 +1,18 @@
+"""
+Helpers for crunching numbers and summarizing how the dataset collection went.
+Includes tracking for repairs, surrogate dynamics, and optimization stats.
+"""
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
 
-
 @dataclass
 class RepairUsageAccumulator:
+    """
+    Tracks how often we had to "repair" trajectories because they 
+    violated dynamics or hit obstacles. 
+    """
     repair_used_trajectory_count: int = 0
     slsqp_iteration_total: int = 0
     slsqp_function_evaluation_total: int = 0
@@ -22,6 +29,7 @@ class RepairUsageAccumulator:
     warm_start_rrt_replaced_trajectory_count: int = 0
 
     def ingest(self, record: dict[str, object], repair_reason_counts: dict[str, int]) -> None:
+        """Add data from a single record into our running totals."""
         optimization = record.get("optimization", {})
         if not isinstance(optimization, dict):
             return
@@ -75,6 +83,7 @@ class RepairUsageAccumulator:
             )
 
     def finalize(self, raw_trajectory_count: int, repair_reason_counts: dict[str, int]) -> dict[str, float | int]:
+        """Calculate averages and final percentages."""
         repair_free_trajectory_count = raw_trajectory_count - self.repair_used_trajectory_count
         repair_rate = (
             float(self.repair_used_trajectory_count) / float(raw_trajectory_count) if raw_trajectory_count > 0 else 0.0
@@ -136,9 +145,12 @@ class RepairUsageAccumulator:
             ),
         }
 
-
 @dataclass
 class SurrogateSummaryAccumulator:
+    """
+    Accumulates stats about how well the surrogate model matches the actual dynamics.
+    We track things like max acceleration and collision distances.
+    """
     summary_count: int = 0
     max_acceleration_observed_total: float = 0.0
     mean_acceleration_magnitude_total: float = 0.0
@@ -178,6 +190,7 @@ class SurrogateSummaryAccumulator:
     collision_limit_exceed_trajectory_count: int = 0
 
     def ingest(self, surrogate: dict[str, object]) -> None:
+        """Add surrogate data from one planning run."""
         self.summary_count += 1
         observed = float(surrogate.get("max_acceleration_observed", 0.0) or 0.0)
         mean_magnitude = float(surrogate.get("mean_acceleration_magnitude", 0.0) or 0.0)
@@ -255,6 +268,7 @@ class SurrogateSummaryAccumulator:
             self.collision_limit_exceed_trajectory_count += 1
 
     def finalize(self, *, prefix: str) -> dict[str, float | int]:
+        """Wrap up the totals into a neat dictionary of averages and maxes."""
         mean_denominator = float(self.summary_count) if self.summary_count > 0 else 1.0
         return {
             f"{prefix}_dynamics_summary_trajectory_count": self.summary_count,
@@ -356,14 +370,13 @@ class SurrogateSummaryAccumulator:
             ),
         }
 
-
 def _repair_usage_summary(records: list[dict[str, object]]) -> dict[str, float | int]:
+    """Helper to get the full repair usage report from a list of records."""
     accumulator = RepairUsageAccumulator()
     repair_reason_counts: dict[str, int] = {}
     for record in records:
         accumulator.ingest(record, repair_reason_counts)
     return accumulator.finalize(len(records), repair_reason_counts)
-
 
 def _surrogate_trajectory_dynamics_summary_for_key(
     records: list[dict[str, object]],
@@ -371,6 +384,7 @@ def _surrogate_trajectory_dynamics_summary_for_key(
     optimization_key: str,
     prefix: str,
 ) -> dict[str, float | int]:
+    """Base logic for summarizing surrogate data for any given key in the optimization dict."""
     accumulator = SurrogateSummaryAccumulator()
     for record in records:
         optimization = record.get("optimization", {})
@@ -382,24 +396,24 @@ def _surrogate_trajectory_dynamics_summary_for_key(
         accumulator.ingest(surrogate)
     return accumulator.finalize(prefix=prefix)
 
-
 def _surrogate_trajectory_dynamics_summary(records: list[dict[str, object]]) -> dict[str, float | int]:
+    """Get surrogate stats for the final trajectory."""
     return _surrogate_trajectory_dynamics_summary_for_key(
         records,
         optimization_key="surrogate_trajectory_dynamics",
         prefix="surrogate",
     )
 
-
 def _surrogate_initial_trajectory_dynamics_summary(records: list[dict[str, object]]) -> dict[str, float | int]:
+    """Get surrogate stats for the initial trajectory (before optimization)."""
     return _surrogate_trajectory_dynamics_summary_for_key(
         records,
         optimization_key="surrogate_initial_trajectory_dynamics",
         prefix="surrogate_initial",
     )
 
-
 def _surrogate_dynamics_checkpoint_summary(records: list[dict[str, object]]) -> dict[str, float | int]:
+    """Summarize surrogate data from intermediate optimization checkpoints."""
     summaries: dict[str, float | int] = {}
     grouped_records: dict[int, list[dict[str, object]]] = {}
     for record in records:

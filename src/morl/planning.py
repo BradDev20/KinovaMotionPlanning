@@ -16,6 +16,10 @@ from .schemas import TaskSpec
 
 @dataclass(frozen=True)
 class PlannerConfig:
+    """
+    Settings for the trajectory optimizer. 
+    Controls how many waypoints we use, safety margins, and solver limits.
+    """
     n_waypoints: int = 25
     cost_sample_rate: int = 2
     max_velocity: float = 1.3
@@ -40,6 +44,10 @@ class PlannerConfig:
 
 @dataclass
 class TaskPlanningContext:
+    """
+    Bundle of everything needed to plan for a specific task.
+    Includes the MuJoCo model, kinematics solver, and cost functions.
+    """
     task: TaskSpec
     scene_path: str
     goal_config: np.ndarray
@@ -51,6 +59,10 @@ class TaskPlanningContext:
 
 
 def resolve_collection_device(device: str | None = None, *, strict_explicit_cuda: bool = False) -> str:
+    """
+    Figures out if we should use the CPU or GPU.
+    Defaults to CUDA if it's available and you didn't say otherwise.
+    """
     try:
         import torch
     except ImportError:
@@ -68,14 +80,20 @@ def resolve_collection_device(device: str | None = None, *, strict_explicit_cuda
 
 
 def _repo_root() -> Path:
+    """Finds the root of the git repo."""
     return Path(__file__).resolve().parents[2]
 
 
 def relative_robot_scene_path(filename: str) -> str:
+    """Small wrapper for scene paths."""
     return filename
 
 
 def build_task_scene(task: TaskSpec, scene_dir: str | Path) -> str:
+    """
+    Generates a MuJoCo XML scene file for a specific task.
+    Puts the obstacles and target in the right places.
+    """
     from src.motion_planning.utils import Obstacle
     from src.motion_planning.scene_builder import create_standard_scene
 
@@ -93,6 +111,10 @@ def build_task_scene(task: TaskSpec, scene_dir: str | Path) -> str:
 
 
 def _make_warm_start(start_config: np.ndarray, goal_config: np.ndarray, n_waypoints: int, noise_scale: float, rng: np.random.Generator) -> np.ndarray:
+    """
+    Creates a simple linear path between start and goal to give the planner a head start.
+    Adds a bit of random noise so we can try different initial guesses.
+    """
     trajectory = np.zeros((n_waypoints, start_config.shape[0]), dtype=np.float64)
     for index in range(n_waypoints):
         alpha = index / max(n_waypoints - 1, 1)
@@ -104,6 +126,7 @@ def _make_warm_start(start_config: np.ndarray, goal_config: np.ndarray, n_waypoi
 
 
 def _plasma_color(alpha: float) -> list[float]:
+    """Helper to get a nice color from the plasma map based on the alpha preference."""
     try:
         import matplotlib.pyplot as plt
 
@@ -114,6 +137,7 @@ def _plasma_color(alpha: float) -> list[float]:
 
 
 def _trajectory_id(task: TaskSpec, mode: str, alpha: float, restart_index: int) -> str:
+    """Generates a unique string ID for a planned trajectory."""
     return f"{task.task_id}_{mode}_a{alpha:.3f}_r{restart_index:02d}".replace(".", "p")
 
 
@@ -123,6 +147,10 @@ def _validate_trajectory_dynamics(
     max_velocity: float,
     max_acceleration: float,
 ) -> None:
+    """
+    Double checks that the planner didn't cheat and break joint limits.
+    Calculates velocity and acceleration between waypoints.
+    """
     if trajectory.shape[0] < 2:
         return
     velocities = np.abs(np.diff(trajectory, axis=0) / float(dt))
@@ -155,6 +183,7 @@ def _trajectory_dynamics_summary(
     max_velocity: float,
     max_acceleration: float,
 ) -> dict[str, float | int]:
+    """Gives a neat summary of how close the trajectory came to its physical limits."""
     summary: dict[str, float | int] = {
         "velocity_violation_count": 0,
         "acceleration_violation_count": 0,
@@ -185,6 +214,7 @@ def _trajectory_dynamics_summary(
 
 
 def _validate_trajectory_contacts(model, data, trajectory: np.ndarray) -> None:
+    """Checks the whole trajectory for collisions using MuJoCo's collision checker."""
     from src.motion_planning.planners import MotionPlannerFactory
 
     collision_checker = MotionPlannerFactory.create_collision_checker(model, data)

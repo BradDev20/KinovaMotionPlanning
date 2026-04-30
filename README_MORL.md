@@ -33,97 +33,128 @@ python -m src.cli train --run my_experiment --mode sum --epochs 50
 python -m src.cli eval --run my_experiment --mode sum
 ```
 
-**See a Rollout in Action (Replay)**
-View a task using the interactive viewer:
+---
+
+## 2. Reproducing a Comparison Result
+
+To reproduce a result comparing `sum` and `max` modes on a specific non-convex family like `double_corridor` (often abbreviated as `dc`), follow these steps:
+
+### Step 1: Data Collection
+Generate datasets for both modes. For a high-quality Pareto front, use a higher task count and multiple restarts.
 ```bash
-python -m src.cli replay --run my_experiment --mode sum --task <task_id> --source both
+# Weighted Sum collection
+python -m src.cli collect --run pareto_dc --mode sum --family double_corridor --task-count 50 --restart-count 5
+
+# Weighted Max collection
+python -m src.cli collect --run pareto_dc --mode max --family double_corridor --task-count 50 --restart-count 5
 ```
-*(The `--source both` flag will show trajectories from both the planner dataset and the offline RL evaluation. You can also specify multiple tasks with `--tasks <id1> <id2>`)*
+
+### Step 2: Training
+Train the IQL agents on the collected data. 50-100 epochs is usually sufficient for convergence.
+```bash
+python -m src.cli train --run pareto_dc --mode sum --epochs 100
+python -m src.cli train --run pareto_dc --mode max --epochs 100
+```
+
+### Step 3: Evaluation
+Run rollouts using the trained policies across a range of alpha (preference) values.
+```bash
+python -m src.cli eval --run pareto_dc --mode sum --alpha-grid 0.0,0.25,0.5,0.75,1.0
+python -m src.cli eval --run pareto_dc --mode max --alpha-grid 0.0,0.25,0.5,0.75,1.0
+```
 
 ---
 
-## 2. File Locations
+## 3. Visualization and Graphing
 
-By default, all runs are stored in the `data/runs/` directory. For a given run name (e.g., `my_experiment`), the layout is structured by mode (`sum` or `max`):
+Once you have evaluation results, you can generate graphs to analyze the performance.
 
-- **Root directory:** `data/runs/{run_name}/`
-- **Mode directory:** `data/runs/{run_name}/{mode}/` (e.g., `data/runs/my_experiment/sum/`)
-  - `dataset/`: Contains the collected planner dataset and `dataset_summary.json`.
-  - `checkpoints/{mode}_iql/`: Contains the model checkpoints (e.g., `checkpoint.pt`).
-  - `evaluation/`: Contains evaluation rollout results (e.g., `rollouts.pkl`).
-  - `pipeline_summary.json`: Summary of the pipeline's execution and support check results.
-- **Comparison directory:** `data/runs/{run_name}/compare/` (Generated when evaluating/comparing sum vs. max datasets).
+### Pareto Front Comparison
+To see how well each mode covers the objective space (Path Length vs. Obstacle Distance):
+```bash
+# Comparison graph for both modes
+python -m src.cli pareto --run pareto_dc
+```
+*Graph saved to: `data/runs/pareto_dc/compare/pareto.png`*
+
+### Trajectory Replay (Visual Inspection)
+To visually compare the paths taken by the `sum` agent vs the `max` agent for a specific task:
+```bash
+python -m src.cli replay --run pareto_dc --mode max --task task_0001 --source both
+```
+- `--source both`: Shows the planner's original path and the RL agent's rollout.
+- `--no-viewer`: Use this flag to just print stats if you don't have a display.
+
+### Detailed Dataset Comparison
+To compute hypervolume, success rates, and coverage metrics across the two modes:
+```bash
+python -m src.cli compare --run pareto_dc
+```
+*Summary saved to: `data/runs/pareto_dc/compare/comparison_summary.json`*
 
 ---
 
-## 3. Relevant Command Flags
+## 4. File Locations
 
-Here are the key flags used for collection, training, and the pipeline. *(Note: some flags use a slightly different name in the CLI than they do conceptually).*
+All results are stored in the `data/runs/` directory.
 
-### Collection & General Flags
-- `--run`: The identifier/name for your experiment. Data and results are saved under this name.
-- `--mode`: The planner and scalarization mode. Must be either `sum` (weighted sum) or `max` (weighted max).
-- `--family`: (Corresponds to **task family**). The task family to sample from (e.g., `mixed`). Defaults to `mixed`.
-- `--task-count`: Number of tasks to sample for the dataset.
-- `--alpha-count`: (Corresponds to **num alphas**). Number of alpha values (trade-off weights) to sample when an explicit grid is not provided. Default is 11.
-- `--alpha-grid`: Comma-separated list of explicit alpha values (e.g., `0.0,0.5,1.0`). Overrides `--alpha-count`.
-- `--num-workers`: Number of CPU workers to use for parallel dataset collection.
-- `--restart-count`: Planner restarts per task/alpha.
-
-### Training Flags
-- `--epochs`: Number of epochs to train the offline RL policy.
-- `--batch-size`: Batch size for training (default: 256).
-- `--hidden-dim`: Width of the hidden layers (default: 256).
-- `--lr`: Learning rate (default: 3e-4).
-- `--alpha-conditioning-mode`: How alpha is conditioning during training (`dataset` or `uniform`).
-
-## 4. Task Families
-
-The primary goal of evaluating weighted sum vs. weighted max is to test performance on environments with **convex vs. nonconvex Pareto fronts**. Weighted sum theoretically struggles to find policies on the interior of a nonconvex Pareto front, whereas weighted max can explore these areas effectively.
-
-You can select a specific task family during dataset collection using the `--family` flag, or use `--family mixed` to sample from a mix. 
-
-### Convex Families
-These families have simple, convex Pareto fronts (trade-offs between path length, smoothness, and obstacle clearance are straightforward):
-- **`stacked_detour`**: Obstacles are stacked vertically, requiring the robot to maneuver clearly over or under them.
-- **`asymmetric_safe_margin`**: Obstacles have uneven clearance margins, forcing the robot to prefer one side over another.
-- **`corridor_left_right`** *(Legacy)*: A straightforward path flanked symmetrically by obstacles on both the left and right sides.
-- **`pinch_point`** *(Legacy)*: A simple, narrow gap between obstacles that the robot must thread through.
-
-### Nonconvex Families
-These families are specifically designed to have **nonconvex Pareto fronts**, where the robot must make hard, mutually exclusive choices (e.g., going completely around the left vs. right side of a large obstacle complex):
-- **`pinch_bottleneck`**: A restrictive bottleneck created by multiple tight obstacles that drastically limits the viable passage space.
-- **`double_corridor`**: Two parallel corridors separated by an obstacle, requiring the robot to commit to one distinct path early on.
-- **`culdesac_escape`**: A dead-end or pocket-like arrangement of obstacles that traps the robot if it takes an incorrect approach.
-- **`offset_gate`**: A series of staggered gates or openings requiring a zig-zag trajectory to successfully navigate.
+- **Mode directory:** `data/runs/{run_name}/{mode}/`
+  - `dataset/`: Collected planner trajectories and `dataset_summary.json`.
+  - `checkpoints/`: Saved IQL model (`checkpoint.pt`).
+  - `evaluation/`: Rollout data (`rollouts.pkl`) and metrics.
+- **Comparison directory:** `data/runs/{run_name}/compare/`
+  - `pareto.png`: The objective-space visualization.
+  - `comparison_summary.json`: High-level metrics (Hypervolume, etc.)
 
 ---
 
-## 5. Visualization and Graphing
+## 5. Detailed Command Line Flag List
 
-The CLI includes built-in tools for comparing and visualizing the results of the `sum` and `max` modes.
+The CLI supports several subcommands (`collect`, `train`, `eval`, `pipeline`, `compare`, `replay`, `pareto`). Below are the most important flags grouped by their function.
 
-**Compare Sum vs. Max Datasets**
-To compare the datasets generated by the two modes and compute size-matched ablation metrics:
-```bash
-python -m src.cli compare --run my_experiment
-```
-*Results are saved to `data/runs/my_experiment/compare/`.*
+### Common Flags (Used across most commands)
+- `--run`: Identifier for the experiment. Controls default file paths.
+- `--mode`: Either `sum` or `max`. Sets the scalarization/optimization strategy.
+- `--root`: Root directory for all data/runs (defaults to `data/runs`).
+- `--device`: Torch device (`cpu`, `cuda`, `cuda:0`, etc.).
 
-**Plotting Pareto Fronts**
-To visualize the Pareto fronts of the planner dataset vs. the evaluation rollouts:
-```bash
-# Plot Pareto fronts for a specific mode
-python -m src.cli pareto --run my_experiment --mode sum
+### Collection Flags (`collect` and `pipeline`)
+- `--family`: Task family to sample from (e.g., `mixed`, `double_corridor`, `culdesac_escape`).
+- `--regime`: Geometry regime (`mixed`, `convex`, `nonconvex`).
+- `--difficulty`: Difficulty level (`easy`, `medium`, `hard`).
+- `--task-count`: Total number of unique scenes to sample.
+- `--alpha-count`: Number of weight trade-offs to sample per task (default: 11).
+- `--alpha-grid`: Explicit comma-separated list of alpha values (overrides `--alpha-count`).
+- `--restart-count`: Number of times the planner restarts per task/alpha to find a better path.
+- `--num-workers`: Number of parallel CPU workers for task processing.
+- `--gpu-batch-size`: Batch size for the Torch-based trajectory optimizer.
+- `--planner-steps`: Number of optimization steps per trajectory (default: 500).
+- `--seed-bank-dir`: Directory for global "warm-start" seeds (defaults to `seed_bank`). "Warm-start" seeds are faster becauase they are known to be successful.
+- `--report-size-matched`: Flag to enable size-matched max ablation reporting in comparisons.
 
-# Plot Pareto comparison between sum and max for the entire run
-python -m src.cli pareto --run my_experiment
-```
-*The resulting Pareto graphs (e.g., `pareto.png`) are saved in the mode's evaluation directory or the run's comparison directory, respectively.*
+### Training Flags (`train` and `pipeline`)
+- `--epochs`: Number of training epochs (default: 50).
+- `--batch-size`: Mini-batch size for IQL training (default: 256).
+- `--lr`: Learning rate for the Adam optimizer (default: 1e-4).
+- `--hidden-dim`: Width of the MLP layers in the Q and Policy networks (default: 256).
+- `--alpha-conditioning-mode`: How preferences are sampled during training (`dataset` or `uniform`).
+- `--expectile`: The IQL expectile parameter (default: 0.7).
+- `--beta`: Inverse temperature for the advantage-weighted policy extraction (default: 3.0).
 
-**Replay Viewer**
-The `replay` command allows you to visually inspect the specific trajectories in the environment:
-```bash
-python -m src.cli replay --run my_experiment --mode sum --tasks <task_id>
-```
-*Use the `--no-viewer` flag if you only want to process the trajectories without launching the GUI.*
+### Evaluation Flags (`eval` and `pipeline`)
+- `--split`: Which dataset split to evaluate (`train`, `val`, `test`).
+- `--alpha-grid`: Comma-separated weights to test during evaluation rollouts.
+- `--deterministic`: If set, use the policy mean instead of sampling actions.
+- `--max-steps`: Maximum horizon for the RL rollouts (overrides environment default).
+
+### Visualization & Analysis Flags
+- **`replay`**:
+  - `--task`: Single task ID to replay.
+  - `--source`: Where to pull trajectories from (`both`, `planner`, or `eval`).
+  - `--no-viewer`: Process data and print stats without opening the 3D GUI.
+- **`pareto`**:
+  - `--group-by-family`: Create a grid of plots, one for each task family.
+  - `--coverage-only`: Plot only the points on the Pareto front.
+  - `--nonconvex-only`: Only plot families designated as non-convex.
+- **`compare`**:
+  - `--size-matched-samples`: Number of bootstrap samples for the max-ablation comparison.

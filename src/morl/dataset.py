@@ -24,6 +24,10 @@ MODE_TO_INDEX = {"sum": 0, "max": 1}
 
 @numba_njit(cache=True)
 def _resample_indices(length: int, target_length: int) -> np.ndarray:
+    """
+    Math to figure out which indices to pick when stretching or 
+    shrinking a trajectory to a new size. 
+    """
     if target_length <= 0:
         return np.empty(0, dtype=np.int32)
     indices = np.empty(target_length, dtype=np.int32)
@@ -42,6 +46,10 @@ def _resample_indices(length: int, target_length: int) -> np.ndarray:
 
 @numba_njit(cache=True)
 def _trajectory_distance_kernel(lhs_sample: np.ndarray, rhs_sample: np.ndarray) -> float:
+    """
+    Fast path for calculating how far apart two trajectories are.
+    It's basically the average Euclidean distance between matched waypoints.
+    """
     total = 0.0
     rows = lhs_sample.shape[0]
     if rows == 0:
@@ -58,6 +66,10 @@ def _trajectory_distance_kernel(lhs_sample: np.ndarray, rhs_sample: np.ndarray) 
 
 @numba_njit(cache=True)
 def _nearest_neighbor_spacing_kernel(points: np.ndarray) -> float:
+    """
+    Calculates the average distance to the closest neighbor for a set of points.
+    Used to see how well-spread our Pareto front is.
+    """
     count = points.shape[0]
     if count <= 1:
         return 0.0
@@ -77,12 +89,14 @@ def _nearest_neighbor_spacing_kernel(points: np.ndarray) -> float:
 
 
 def ensure_dir(path: str | Path) -> Path:
+    """Simple helper to make a directory if it doesn't exist yet."""
     output_path = Path(path)
     output_path.mkdir(parents=True, exist_ok=True)
     return output_path
 
 
 def _resample_trajectory(trajectory: np.ndarray, target_length: int) -> np.ndarray:
+    """Change the number of waypoints in a trajectory using index interpolation."""
     if len(trajectory) == target_length:
         return trajectory
     indices = _resample_indices(len(trajectory), target_length)
@@ -90,6 +104,10 @@ def _resample_trajectory(trajectory: np.ndarray, target_length: int) -> np.ndarr
 
 
 def trajectory_distance(lhs: np.ndarray, rhs: np.ndarray) -> float:
+    """
+    Tells you how similar two trajectories are, even if they have 
+    different numbers of points. 
+    """
     target_length = min(len(lhs), len(rhs))
     lhs_sample = _resample_trajectory(lhs, target_length)
     rhs_sample = _resample_trajectory(rhs, target_length)
@@ -101,6 +119,10 @@ def deduplicate_records(
     objective_tol: float = 1e-3,
     path_tol: float = 5e-2,
 ) -> list[dict[str, Any]]:
+    """
+    Cleans up a list of trajectory records by tossing out ones that 
+    are basically identical in both cost and shape.
+    """
     grouped: dict[str, list[dict[str, Any]]] = {}
     for record in records:
         task_id = str(record["task_spec"]["task_id"])
@@ -128,6 +150,7 @@ def deduplicate_records(
 
 
 def cluster_records_by_objective(records: Iterable[dict[str, Any]], objective_tol: float) -> list[list[dict[str, Any]]]:
+    """Groups records together if their costs (length/obstacle) are very close."""
     clusters: list[list[dict[str, Any]]] = []
     for record in records:
         point = np.asarray([record["length_cost"], record["obstacle_cost"]], dtype=np.float64)
@@ -144,6 +167,7 @@ def cluster_records_by_objective(records: Iterable[dict[str, Any]], objective_to
 
 
 def cluster_records_by_route(records: Iterable[dict[str, Any]], route_tol: float) -> list[list[dict[str, Any]]]:
+    """Groups records together if they follow roughly the same path through space."""
     clusters: list[list[dict[str, Any]]] = []
     for record in records:
         assigned = False
@@ -160,10 +184,15 @@ def cluster_records_by_route(records: Iterable[dict[str, Any]], route_tol: float
 
 
 def _nearest_neighbor_spacing(points: np.ndarray) -> float:
+    """Wrapper for the neighbor spacing kernel."""
     return float(_nearest_neighbor_spacing_kernel(np.asarray(points, dtype=np.float64)))
 
 
 def coverage_metrics(records: Iterable[dict[str, Any]]) -> dict[str, float]:
+    """
+    Computes some "how good is our dataset" stats like hypervolume 
+    and Pareto front size. 
+    """
     records_list = list(records)
     if not records_list:
         return {"pareto_count": 0, "hypervolume": 0.0, "front_spacing": 0.0}
@@ -181,6 +210,7 @@ def coverage_metrics(records: Iterable[dict[str, Any]]) -> dict[str, float]:
 
 
 def family_breakdown(records: Iterable[dict[str, Any]], objective_tol: float, route_tol: float) -> dict[str, dict[str, Any]]:
+    """Gives a summary of coverage and uniqueness for each task family."""
     grouped: dict[str, list[dict[str, Any]]] = {}
     for record in records:
         family_name = str(record["task_spec"].get("family", "base"))

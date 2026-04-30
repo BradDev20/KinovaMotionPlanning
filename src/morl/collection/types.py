@@ -1,11 +1,16 @@
+"""
+Common types and helpers for tracking dataset collection.
+"""
 from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
 
-
 @dataclass(frozen=True)
 class CollectionTaskDispatch:
+    """
+    Tells a worker which task to work on and how many times to try.
+    """
     task: object
     task_index: int
     alpha_values: tuple[float, ...]
@@ -13,21 +18,29 @@ class CollectionTaskDispatch:
     mode: str
     order_offset: int
 
-
 @dataclass(frozen=True)
 class PlannerCoordinatorStop:
+    """
+    Special signal to kill off a worker process.
+    """
     worker_id: int
-
 
 @dataclass
 class CollectionJobResult:
+    """
+    What we get back after a single planning run.
+    Either we got a record (success!) or a failure payload.
+    """
     order_index: int
     task_index: int
     record: dict[str, object] | None = None
     failure: dict[str, object] | None = None
 
-
 class CollectionProgressTracker:
+    """
+    Fancy progress bar that shows how we're doing on both the current task 
+    and the overall collection run. 
+    """
     def __init__(
         self,
         *,
@@ -46,12 +59,15 @@ class CollectionProgressTracker:
         self.last_task_index = 0
         self._rendered = False
         self._last_line_length = 0
+        # Use stdout directly so we can overwrite lines with \r
         self._stream = sys.__stdout__ if getattr(sys, "__stdout__", None) is not None else sys.stdout
 
     def start(self) -> None:
+        """Kicks off the rendering."""
         self._render()
 
     def advance(self, result: CollectionJobResult) -> None:
+        """Bump the numbers when a job finishes."""
         if self.total_jobs <= 0:
             return
         self.completed_total += 1
@@ -66,12 +82,14 @@ class CollectionProgressTracker:
         self._render()
 
     def finish(self) -> None:
+        """Cleanup after we're all done."""
         if self._rendered:
             print(file=self._stream, flush=True)
             self._rendered = False
             self._last_line_length = 0
 
     def _render(self) -> None:
+        """The math for the bars and percentages."""
         task_index = min(max(int(self.last_task_index), 0), max(self.task_count - 1, 0))
         task_done = self.completed_by_task[task_index] if self.completed_by_task else 0
         task_total = max(self.jobs_per_task, 1)
@@ -94,6 +112,7 @@ class CollectionProgressTracker:
 
     @staticmethod
     def _bar(done: int, total: int, width: int = 18) -> str:
+        """Draw a progress bar with hashtags."""
         total = max(int(total), 1)
         done = max(0, min(int(done), total))
         filled = int(round(width * (float(done) / float(total))))
